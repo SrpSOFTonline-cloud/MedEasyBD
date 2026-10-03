@@ -1,0 +1,1818 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedEasy BD | Hospital & Diagnostic Management SaaS</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: { extend: {
+                screens: { xs: '420px' },
+                colors: {
+                    brand: {50:'#f0fdf4',100:'#dcfce7',500:'#22c55e',600:'#16a34a',700:'#15803d',800:'#166534',900:'#14532d'},
+                    medical: {50:'#f0f9ff',100:'#e0f2fe',500:'#0ea5e9',600:'#0284c7',700:'#0369a1',800:'#075985'}
+                },
+                fontFamily: { sans: ['Inter','Hind Siliguri','sans-serif'] }
+            }}
+        }
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+    <style>
+        body { font-family:'Inter','Hind Siliguri',sans-serif; -webkit-tap-highlight-color:transparent; }
+        ::-webkit-scrollbar { width:6px; height:6px; }
+        ::-webkit-scrollbar-track { background:#f1f5f9; }
+        ::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:4px; }
+        .scrollbar-none { scrollbar-width:none; }
+        .scrollbar-none::-webkit-scrollbar { display:none; }
+        /* Ctrl+P চাপলে অ্যাপ নিজে print হবে না — সবসময় Print বাটন ব্যবহার করতে হবে */
+        @media print { body > *:not(iframe){ display:none !important; } }
+    </style>
+</head>
+<body class="h-full text-slate-800 bg-slate-50 flex flex-col">
+
+    <!-- Toast -->
+    <div id="toast-container" class="fixed top-5 right-5 z-[60] flex flex-col gap-2 max-w-md pointer-events-none"></div>
+
+    <!-- Security Password Modal -->
+    <div id="security-modal" style="display:none" class="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-slate-100">
+            <div class="text-center mb-5">
+                <div class="w-14 h-14 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl shadow-inner"><i class="fa-solid fa-shield-halved"></i></div>
+                <h3 class="text-xl font-bold text-slate-800" id="sec-modal-title">SaaS Security Verification</h3>
+                <p class="text-sm text-slate-500 mt-1" id="sec-modal-subtitle">Enter Super Admin Password to proceed.</p>
+            </div>
+            <form id="sec-modal-form" autocomplete="off" onsubmit="verifyAdminPassword(event)">
+                <div class="mb-4">
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Admin Password / সিকিউরিটি পিন</label>
+                    <div class="relative">
+                        <input type="password" id="sec-password-input" placeholder="••••••••••" class="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-medical-500 focus:border-medical-500 outline-none text-slate-800 text-center text-lg tracking-widest font-mono" required autofocus>
+                        <button type="button" onclick="togglePassVisibility()" class="absolute right-3 top-3.5 text-slate-400 hover:text-slate-600"><i class="fa-solid fa-eye" id="pass-eye-icon"></i></button>
+                    </div>
+                    <p id="sec-modal-error" class="text-xs text-rose-500 font-medium mt-1.5 hidden items-center gap-1">
+                        <i class="fa-solid fa-circle-exclamation"></i> Incorrect Admin Password! Access Denied.
+                    </p>
+                </div>
+                <div class="flex items-center justify-end gap-3 pt-2">
+                    <button type="button" onclick="closeModal('security-modal');pendingAction=null;" class="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-600 font-medium hover:bg-slate-100 text-sm transition">Cancel</button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-medical-600 text-white font-semibold hover:bg-medical-700 text-sm transition shadow-md flex items-center gap-2"><i class="fa-solid fa-key"></i> Unlock & Proceed</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tenant Lock Overlay -->
+    <div id="tenant-lock-overlay" style="display:none" class="fixed inset-0 z-[55] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-8 text-center border border-slate-200">
+            <div class="w-20 h-20 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-4xl shadow-inner animate-pulse"><i class="fa-solid fa-lock"></i></div>
+            <h2 class="text-2xl font-black text-slate-800 mb-2">Hospital Subscription Expired!</h2>
+            <p class="text-slate-600 text-sm mb-6 leading-relaxed">This hospital tenant (<span id="lock-tenant-name" class="font-bold text-slate-800"></span>) account is currently <span class="bg-rose-100 text-rose-700 px-2 py-0.5 rounded font-bold text-xs uppercase">SUSPENDED / EXPIRED</span>. Please settle the monthly subscription fee to reactivate access.</p>
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-left mb-6 text-xs text-slate-600 space-y-1.5">
+                <div class="flex justify-between"><span>Tenant ID:</span> <span id="lock-tenant-id" class="font-mono font-bold text-slate-800"></span></div>
+                <div class="flex justify-between"><span>Monthly Rent:</span> <span id="lock-tenant-rent" class="font-bold text-slate-800"></span> BDT</div>
+                <div class="flex justify-between"><span>SaaS Helpline:</span> <span class="font-bold text-slate-800">+880 1700-000000</span></div>
+            </div>
+            <button onclick="promptSaaSAdminAuth('switch_tenant_unrestricted')" class="w-full py-3 bg-medical-600 hover:bg-medical-700 text-white rounded-xl font-bold transition text-sm shadow-lg flex items-center justify-center gap-2">
+                <i class="fa-solid fa-crown"></i> Switch Tenant or Unlock via SaaS Admin
+            </button>
+        </div>
+    </div>
+
+    <!-- Custom Test Modal -->
+    <div id="custom-test-modal" style="display:none" class="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="font-black text-lg text-slate-800"><i class="fa-solid fa-flask-vial text-brand-600"></i> Add Custom Test</h3>
+                <button type="button" onclick="closeCustomTestModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <form onsubmit="saveCustomTest(event)" class="space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Test Name *</label>
+                    <input type="text" id="ct-name" required placeholder="e.g. Serum Beta HCG" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-brand-500">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Category</label>
+                        <input type="text" id="ct-category" list="category-list" value="Custom" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm">
+                        <datalist id="category-list">
+                            <option value="Pathology"></option><option value="Biochemistry"></option>
+                            <option value="Radiology"></option><option value="Cardiology"></option>
+                            <option value="Microbiology"></option><option value="Immunology"></option><option value="Custom"></option>
+                        </datalist>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Fee (BDT) *</label>
+                        <input type="number" id="ct-price" min="1" required placeholder="500" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm">
+                    </div>
+                </div>
+                <label class="flex items-center gap-2 text-xs font-semibold text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-200 cursor-pointer">
+                    <input type="checkbox" id="ct-save-directory" checked class="accent-brand-600 w-4 h-4"> Also save to Test Directory for future bills
+                </label>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeCustomTestModal()" class="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-600 font-medium hover:bg-slate-100 text-sm">Cancel</button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-brand-600 text-white font-bold hover:bg-brand-700 text-sm shadow-md flex items-center gap-2"><i class="fa-solid fa-plus"></i> Add to Bill</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scanner Modal -->
+    <div id="scanner-modal" style="display:none" class="fixed inset-0 z-[60] bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="font-black text-lg text-slate-800"><i class="fa-solid fa-camera text-indigo-600"></i> Scan Patient Barcode</h3>
+                <button type="button" onclick="closeScannerModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <div id="scanner-reader" class="w-full rounded-xl overflow-hidden bg-slate-900 mx-auto" style="max-height:280px;"></div>
+            <p id="scanner-error" class="hidden text-xs text-rose-500 mt-2"></p>
+            <p class="text-[11px] text-slate-400 mt-3 text-center">Hold the barcode / QR in front of camera. It will auto-search records.</p>
+        </div>
+    </div>
+
+    <!-- Due Collection Modal -->
+    <div id="due-modal" style="display:none" class="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6">
+            <h3 class="font-black text-lg text-slate-800 mb-1"><i class="fa-solid fa-hand-holding-dollar text-emerald-600"></i> Collect Due Payment</h3>
+            <p class="text-xs text-slate-500 mb-4" id="due-modal-info">—</p>
+            <form onsubmit="submitDueCollection(event)" class="space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Collection Amount (BDT) *</label>
+                    <input type="number" id="due-amount-input" min="1" step="0.01" required class="w-full px-3.5 py-2.5 border border-emerald-300 bg-emerald-50/40 rounded-xl text-sm font-bold focus:ring-2 focus:ring-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Payment Method</label>
+                    <select id="due-method" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm bg-white">
+                        <option value="Cash">Cash</option><option value="bKash">bKash</option>
+                        <option value="Nagad">Nagad</option><option value="Rocket">Rocket</option><option value="Card">Card</option>
+                    </select>
+                </div>
+                <div class="flex justify-end gap-2 pt-1">
+                    <button type="button" onclick="closeModal('due-modal')" class="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-600 font-medium hover:bg-slate-100 text-sm">Cancel</button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 text-sm shadow-md"><i class="fa-solid fa-check"></i> Collect</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Switch Tenant Modal -->
+    <div id="switch-tenant-modal" style="display:none" class="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 max-h-[85vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="font-black text-lg text-slate-800"><i class="fa-solid fa-building-circle-check text-brand-600"></i> Switch Hospital Tenant</h3>
+                <button type="button" onclick="closeModal('switch-tenant-modal')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <div id="switch-tenant-list"></div>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="bg-slate-900 text-white shadow-md sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-tr from-brand-600 to-medical-500 rounded-xl flex items-center justify-center text-white text-xl font-black shadow-lg"><i class="fa-solid fa-hospital"></i></div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-black text-lg tracking-tight bg-gradient-to-r from-white via-slate-100 to-brand-300 bg-clip-text text-transparent">MedEasy BD</span>
+                            <span class="bg-brand-500/20 text-brand-300 text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full border border-brand-500/30">SaaS v5.0</span>
+                        </div>
+                        <p class="text-[11px] text-slate-400 font-medium hidden sm:block">মেডইজি বিডি — হসপিটাল ও ডায়াগনস্টিক ম্যানেজমেন্ট</p>
+                    </div>
+                </div>
+                <div class="hidden lg:flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700">
+                    <i class="fa-solid fa-building-circle-check text-brand-400 text-sm"></i>
+                    <div class="text-xs">
+                        <span class="text-slate-400 text-[10px] block leading-none">Active Tenant:</span>
+                        <span id="header-active-tenant-name" class="font-bold text-white">—</span>
+                    </div>
+                    <button onclick="promptSaaSAdminAuth('switch_tenant')" class="ml-2 bg-slate-700 hover:bg-slate-600 text-slate-200 p-1.5 rounded-lg text-xs transition flex items-center gap-1" title="Switch Tenant (Admin Password Required)">
+                        <i class="fa-solid fa-arrows-rotate text-brand-400"></i><span class="text-[11px] font-semibold">Switch</span>
+                    </button>
+                </div>
+                <div class="flex items-center gap-2 sm:gap-3">
+                    <button onclick="switchTab('billing')" class="bg-brand-600 hover:bg-brand-700 text-white text-xs sm:text-sm font-semibold px-3 sm:px-4 py-2 rounded-xl shadow-md transition flex items-center gap-2">
+                        <i class="fa-solid fa-plus-circle"></i><span class="hidden xs:inline">New Patient Bill</span>
+                    </button>
+                    <button onclick="promptSaaSAdminAuth('open_admin')" class="bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 text-xs font-semibold px-3 py-2 rounded-xl transition flex items-center gap-1.5" title="SaaS Super Admin">
+                        <i class="fa-solid fa-user-shield"></i><span class="hidden sm:inline">SaaS Admin</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Nav -->
+    <nav class="bg-white border-b border-slate-200 shadow-sm sticky top-16 z-30">
+        <div class="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
+            <div class="flex space-x-1 sm:space-x-3 overflow-x-auto py-2 scrollbar-none" id="main-nav-tabs">
+                <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-btn whitespace-nowrap px-3 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition text-slate-600 hover:text-slate-900 hover:bg-slate-100"><i class="fa-solid fa-chart-line text-medical-600"></i>📊 Dashboard</button>
+                <button onclick="switchTab('billing')" id="nav-billing" class="nav-btn whitespace-nowrap px-3 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition text-slate-600 hover:text-slate-900 hover:bg-slate-100"><i class="fa-solid fa-file-invoice-dollar text-brand-600"></i>🧾 Billing</button>
+                <button onclick="switchTab('patients')" id="nav-patients" class="nav-btn whitespace-nowrap px-3 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition text-slate-600 hover:text-slate-900 hover:bg-slate-100"><i class="fa-solid fa-folder-open text-indigo-600"></i>🗂️ Patients</button>
+                <button onclick="switchTab('reports')" id="nav-reports" class="nav-btn whitespace-nowrap px-3 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition text-slate-600 hover:text-slate-900 hover:bg-slate-100"><i class="fa-solid fa-chart-pie text-violet-600"></i>📈 Reports</button>
+                <button onclick="switchTab('expenses')" id="nav-expenses" class="nav-btn whitespace-nowrap px-3 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition text-slate-600 hover:text-slate-900 hover:bg-slate-100"><i class="fa-solid fa-money-bill-transfer text-rose-600"></i>💸 Expenses</button>
+                <button onclick="switchTab('doctors')" id="nav-doctors" class="nav-btn whitespace-nowrap px-3 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition text-slate-600 hover:text-slate-900 hover:bg-slate-100"><i class="fa-solid fa-user-doctor text-sky-600"></i>👨‍⚕️ Doctors</button>
+                <button onclick="switchTab('settings')" id="nav-settings" class="nav-btn whitespace-nowrap px-3 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition text-slate-600 hover:text-slate-900 hover:bg-slate-100"><i class="fa-solid fa-sliders text-amber-600"></i>⚙️ Settings</button>
+                <button onclick="promptSaaSAdminAuth('open_admin')" id="nav-admin" class="nav-btn whitespace-nowrap px-3 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition text-slate-600 hover:text-slate-900 hover:bg-slate-100"><i class="fa-solid fa-lock text-rose-600"></i>🔐 SaaS Admin</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+
+        <!-- 1. DASHBOARD -->
+        <section id="tab-dashboard" class="tab-content space-y-6">
+            <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-medical-900 rounded-2xl p-6 text-white shadow-xl relative overflow-hidden">
+                <div class="absolute -right-10 -bottom-10 opacity-10 text-white text-9xl pointer-events-none"><i class="fa-solid fa-hospital-user"></i></div>
+                <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <span class="bg-brand-500/20 text-brand-300 text-xs font-bold px-3 py-1 rounded-full border border-brand-500/30 inline-block mb-2">Diagnostic Command Center</span>
+                        <h1 class="text-2xl sm:text-3xl font-extrabold" id="dash-tenant-title">—</h1>
+                        <p class="text-slate-300 text-xs sm:text-sm mt-1" id="dash-tenant-subtitle">Real-time Invoice & Revenue Analytics</p>
+                    </div>
+                    <button onclick="switchTab('billing')" class="bg-brand-500 hover:bg-brand-600 text-white font-bold px-5 py-3 rounded-xl shadow-lg transition flex items-center gap-2 text-sm w-fit"><i class="fa-solid fa-plus-circle"></i> Create New Bill</button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                    <div class="flex items-center justify-between mb-2"><span class="text-xs font-bold text-slate-500 uppercase">Today's Bills</span><div class="w-9 h-9 bg-medical-50 text-medical-600 rounded-xl flex items-center justify-center"><i class="fa-solid fa-receipt"></i></div></div>
+                    <div class="text-2xl font-black text-slate-800" id="dash-stat-count">0</div>
+                    <p class="text-xs text-slate-500 mt-1">আজকের মোট বিল</p>
+                </div>
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                    <div class="flex items-center justify-between mb-2"><span class="text-xs font-bold text-slate-500 uppercase">Today Collected</span><div class="w-9 h-9 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center"><i class="fa-solid fa-bangladeshi-taka-sign"></i></div></div>
+                    <div class="text-2xl font-black text-emerald-600">৳ <span id="dash-stat-income">0</span></div>
+                    <p class="text-xs text-slate-500 mt-1">আজকের আদায়কৃত</p>
+                </div>
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                    <div class="flex items-center justify-between mb-2"><span class="text-xs font-bold text-slate-500 uppercase">Total Due</span><div class="w-9 h-9 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center"><i class="fa-solid fa-triangle-exclamation"></i></div></div>
+                    <div class="text-2xl font-black text-rose-600">৳ <span id="dash-stat-due">0</span></div>
+                    <p class="text-xs text-slate-500 mt-1">মোট বকেয়া</p>
+                </div>
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                    <div class="flex items-center justify-between mb-2"><span class="text-xs font-bold text-slate-500 uppercase">Patients Today</span><div class="w-9 h-9 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center"><i class="fa-solid fa-user-injured"></i></div></div>
+                    <div class="text-2xl font-black text-slate-800" id="dash-stat-patients">0</div>
+                    <p class="text-xs text-slate-500 mt-1">আজকের রোগী সংখ্যা</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold text-slate-800 text-base flex items-center gap-2"><i class="fa-solid fa-chart-column text-medical-600"></i> Revenue Breakdown (Paid vs Due)</h3>
+                        <span class="text-xs text-slate-400">Last 7 Days</span>
+                    </div>
+                    <div class="h-64"><canvas id="dashboard-chart-revenue"></canvas></div>
+                </div>
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold text-slate-800 text-base flex items-center gap-2"><i class="fa-solid fa-chart-pie text-brand-600"></i> Test Categories Share</h3>
+                        <span class="text-xs text-slate-400">Top Tests</span>
+                    </div>
+                    <div class="h-64 flex items-center justify-center"><canvas id="dashboard-chart-categories"></canvas></div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+                    <div><h3 class="font-bold text-slate-800 text-lg">Recent Today's Invoices</h3><p class="text-xs text-slate-500">আজকের সর্বশেষ বিলসমূহ</p></div>
+                    <button onclick="switchTab('patients')" class="text-xs font-bold text-medical-600 hover:text-medical-700 flex items-center gap-1">View All Records <i class="fa-solid fa-arrow-right"></i></button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-xs sm:text-sm">
+                        <thead><tr class="bg-slate-50 text-slate-500 uppercase text-[11px] font-bold border-b border-slate-200">
+                            <th class="p-3.5 pl-5">Invoice & Patient ID</th><th class="p-3.5">Patient Info</th><th class="p-3.5">Ref Doctor</th><th class="p-3.5">Grand Total</th><th class="p-3.5">Paid / Due</th><th class="p-3.5 text-center">Actions</th>
+                        </tr></thead>
+                        <tbody id="dash-recent-table-body" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. BILLING -->
+        <section id="tab-billing" class="tab-content space-y-6 hidden">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-200 pb-4">
+                <div>
+                    <h2 class="text-2xl font-black text-slate-800 flex items-center gap-2"><i class="fa-solid fa-file-invoice text-brand-600"></i> New Diagnostic Patient Invoice</h2>
+                    <p class="text-xs text-slate-500">বিল তৈরি করুন — A4 ইনভয়েস, থার্মাল রশিদ ও স্পেসিমেন স্টিকার প্রিন্ট সহ।</p>
+                </div>
+                <button onclick="resetInvoiceForm()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-3 py-2 rounded-xl transition flex items-center gap-1.5"><i class="fa-solid fa-arrows-rotate"></i> Clear Form</button>
+            </div>
+
+            <form id="invoice-form" onsubmit="saveInvoiceOnly(event)" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <div class="lg:col-span-8 space-y-6">
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                            <h3 class="font-bold text-slate-800 text-base flex items-center gap-2"><i class="fa-solid fa-id-card text-medical-600"></i> Patient Demographics</h3>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs text-slate-500 font-medium">Patient ID:</span>
+                                <input type="text" id="inv-patient-id" readonly class="bg-slate-100 font-mono font-black text-brand-700 px-3 py-1 rounded-lg text-sm border border-slate-200 w-32 text-center select-all">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Patient Name / রোগীর নাম *</label>
+                                <input type="text" id="inv-patient-name" placeholder="e.g. Md. Kabir Hossain" required class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-medical-500 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Mobile No / মোবাইল *</label>
+                                <input type="tel" id="inv-patient-phone" placeholder="01712000000" required class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-medical-500 text-sm">
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Age / বয়স</label>
+                                    <input type="text" id="inv-patient-age" placeholder="35 Yrs" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-medical-500 text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Gender</label>
+                                    <select id="inv-patient-gender" class="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-medical-500 text-sm bg-white">
+                                        <option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Referred Doctor / রেফার্ড ডাক্তার</label>
+                                <input type="text" id="inv-ref-doctor" placeholder="e.g. Dr. M. Rahman, MBBS, FCPS" list="doctor-suggestions" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-medical-500 text-sm">
+                                <datalist id="doctor-suggestions"></datalist>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Report Delivery / রিপোর্ট ডেলিভারি</label>
+                                <input type="datetime-local" id="inv-delivery-date" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-medical-500 text-xs">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                            <h3 class="font-bold text-slate-800 text-base flex items-center gap-2"><i class="fa-solid fa-vials text-brand-600"></i> Add Diagnostic Investigations</h3>
+                            <span class="text-xs text-slate-500">পরীক্ষা সিলেক্ট করে বিলে যোগ করুন</span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                            <div class="sm:col-span-8">
+                                <select id="inv-test-selector" onchange="handleAddSelectedTest()" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand-500 text-sm bg-white font-medium">
+                                    <option value="">-- Choose Diagnostic Test / পরীক্ষা সিলেক্ট করুন --</option>
+                                </select>
+                            </div>
+                            <div class="sm:col-span-4">
+                                <button type="button" onclick="showCustomTestModal()" class="w-full h-full py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl border border-slate-300 transition flex items-center justify-center gap-1.5">
+                                    <i class="fa-solid fa-plus text-brand-600"></i> Custom Test
+                                </button>
+                            </div>
+                        </div>
+                        <div class="border border-slate-200 rounded-xl overflow-hidden mt-3">
+                            <table class="w-full text-left text-xs sm:text-sm">
+                                <thead class="bg-slate-50 text-slate-600 uppercase text-[11px] font-bold border-b border-slate-200">
+                                    <tr><th class="p-3">#</th><th class="p-3">Investigation Name</th><th class="p-3">Category</th><th class="p-3 text-right">Fee (BDT)</th><th class="p-3 text-center">Action</th></tr>
+                                </thead>
+                                <tbody id="inv-selected-tests-body" class="divide-y divide-slate-100"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-4">
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4 sticky top-32">
+                        <h3 class="font-bold text-slate-800 text-base border-b border-slate-100 pb-3 flex items-center gap-2"><i class="fa-solid fa-calculator text-emerald-600"></i> Payment & Billing Summary</h3>
+                        <div class="space-y-3 text-sm">
+                            <div class="flex justify-between items-center text-slate-600"><span>Subtotal Fee:</span><span class="font-bold text-slate-800 text-base">৳ <span id="inv-subtotal">0.00</span></span></div>
+                            <div class="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                                <label class="text-xs font-bold text-slate-600">Discount / ছাড় (BDT):</label>
+                                <input type="number" id="inv-discount-input" value="0" min="0" oninput="calculateBillingTotals()" class="w-28 px-3 py-1.5 border border-slate-300 rounded-lg text-right font-bold focus:ring-2 focus:ring-emerald-500 text-sm">
+                            </div>
+                            <div class="flex items-center justify-between gap-2">
+                                <label class="text-xs font-bold text-slate-600">Tax/VAT (%):</label>
+                                <input type="number" id="inv-tax-input" value="0" min="0" max="100" oninput="calculateBillingTotals()" class="w-20 px-3 py-1.5 border border-slate-300 rounded-lg text-right font-bold focus:ring-2 focus:ring-emerald-500 text-sm">
+                            </div>
+                            <div class="flex justify-between items-center pt-3 border-t-2 border-slate-200">
+                                <span class="font-extrabold text-slate-800">Grand Total / সর্বমোট:</span>
+                                <span class="font-black text-xl text-emerald-600">৳ <span id="inv-grand-total">0.00</span></span>
+                            </div>
+                            <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2 mt-2">
+                                <div class="flex justify-between items-center">
+                                    <label class="text-xs font-black text-slate-700">Paid Amount *</label>
+                                    <input type="number" id="inv-paid-input" value="0" min="0" oninput="calculateBillingTotals()" class="w-32 px-3 py-1.5 border border-emerald-400 rounded-lg text-right font-black bg-emerald-50/50 focus:ring-2 focus:ring-emerald-500 text-base">
+                                </div>
+                                <div class="flex justify-between items-center pt-1 border-t border-slate-200 text-xs font-bold">
+                                    <span>Due Balance / বকেয়া:</span>
+                                    <span class="px-2 py-0.5 rounded font-black text-rose-600 bg-rose-50 border border-rose-200">৳ <span id="inv-due-total">0.00</span></span>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Payment Method</label>
+                                <select id="inv-payment-method" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs bg-white font-medium">
+                                    <option value="Cash">Cash / নগদ</option><option value="bKash">bKash</option>
+                                    <option value="Nagad">Nagad</option><option value="Rocket">Rocket</option><option value="Card">Card</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="pt-4 space-y-2">
+                            <button type="submit" class="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-extrabold text-sm shadow-lg transition flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-floppy-disk"></i> <span id="inv-submit-label">Save Invoice Only</span>
+                            </button>
+                            <button type="button" id="inv-cancel-edit" onclick="resetInvoiceForm()" class="hidden w-full py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl font-bold text-xs border border-rose-200 transition flex items-center justify-center gap-1.5"><i class="fa-solid fa-ban"></i> Cancel Edit Mode</button>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button type="button" onclick="handlePrintInvoice('A4')" class="py-2.5 bg-medical-600 hover:bg-medical-700 text-white rounded-xl font-bold text-xs shadow transition flex items-center justify-center gap-1"><i class="fa-solid fa-print"></i> Print A4</button>
+                                <button type="button" onclick="handlePrintInvoice('THERMAL')" class="py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-bold text-xs shadow transition flex items-center justify-center gap-1"><i class="fa-solid fa-receipt"></i> Thermal 3"</button>
+                            </div>
+                            <button type="button" onclick="handlePrintInvoice('STICKER')" class="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-xs shadow transition flex items-center justify-center gap-1"><i class="fa-solid fa-barcode"></i> Print Specimen Tube Label</button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </section>
+
+        <!-- 3. PATIENTS -->
+        <section id="tab-patients" class="tab-content space-y-6 hidden">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+                <div>
+                    <h2 class="text-2xl font-black text-slate-800 flex items-center gap-2"><i class="fa-solid fa-folder-open text-indigo-600"></i> Patient Invoices & Records</h2>
+                    <p class="text-xs text-slate-500">Patient ID, নাম, মোবাইল বা ক্যামেরা স্ক্যান দিয়ে খুঁজুন। Due collect, SMS ও print করুন।</p>
+                </div>
+                <button onclick="openBarcodeScannerModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow transition flex items-center gap-2 w-fit"><i class="fa-solid fa-camera"></i> Camera Scanner</button>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center gap-3">
+                <div class="relative flex-1 w-full">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-slate-400"></i>
+                    <input type="text" id="records-search-input" oninput="renderPatientRecordsTable()" placeholder="Search by Patient ID, Name, Mobile or Invoice No..." class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 text-sm">
+                </div>
+                <select id="records-filter-status" onchange="renderPatientRecordsTable()" class="px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs bg-white font-medium w-full md:w-40">
+                    <option value="ALL">All Payments</option><option value="PAID">Fully Paid</option><option value="DUE">Has Due</option>
+                </select>
+            </div>
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-xs sm:text-sm">
+                        <thead><tr class="bg-slate-50 text-slate-500 uppercase text-[11px] font-bold border-b border-slate-200">
+                            <th class="p-3.5 pl-5">Date & Invoice</th><th class="p-3.5">Patient</th><th class="p-3.5">Mobile</th><th class="p-3.5">Doctor</th>
+                            <th class="p-3.5 text-right">Total</th><th class="p-3.5 text-right">Paid</th><th class="p-3.5 text-right">Due</th>
+                            <th class="p-3.5 text-center">Payment</th><th class="p-3.5 text-center">Report</th><th class="p-3.5 text-center">Actions</th>
+                        </tr></thead>
+                        <tbody id="records-table-body" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. REPORTS -->
+        <section id="tab-reports" class="tab-content space-y-6 hidden">
+            <div class="border-b border-slate-200 pb-4">
+                <h2 class="text-2xl font-black text-slate-800 flex items-center gap-2"><i class="fa-solid fa-chart-pie text-violet-600"></i> Sales & Collection Reports</h2>
+                <p class="text-xs text-slate-500">তারিখ অনুযায়ী বিক্রি, আদায়, খরচ ও বকেয়ার সম্পূর্ণ হিসাব — Day Book প্রিন্ট ও CSV ডাউনলোড সহ।</p>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-end gap-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">From Date</label>
+                    <input type="date" id="rep-from" onchange="renderReports()" class="px-3 py-2 border border-slate-300 rounded-xl text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">To Date</label>
+                    <input type="date" id="rep-to" onchange="renderReports()" class="px-3 py-2 border border-slate-300 rounded-xl text-sm">
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="setRange('today')" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold">Today</button>
+                    <button onclick="setRange('7d')" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold">Last 7 Days</button>
+                    <button onclick="setRange('month')" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold">This Month</button>
+                </div>
+                <div class="flex-1"></div>
+                <div class="flex gap-2">
+                    <button onclick="printDayBook()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow flex items-center gap-1.5"><i class="fa-solid fa-print"></i> Print Day Book</button>
+                    <button onclick="exportCSV()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow flex items-center gap-1.5"><i class="fa-solid fa-file-csv"></i> Export CSV</button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm"><span class="text-[10px] font-bold text-slate-500 uppercase">Bills</span><div class="text-xl font-black text-slate-800" id="rep-bills">0</div></div>
+                <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm"><span class="text-[10px] font-bold text-slate-500 uppercase">Gross Sales</span><div class="text-xl font-black text-slate-800">৳ <span id="rep-gross">0</span></div></div>
+                <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm"><span class="text-[10px] font-bold text-slate-500 uppercase">Collection</span><div class="text-xl font-black text-emerald-600">৳ <span id="rep-coll">0</span></div></div>
+                <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm"><span class="text-[10px] font-bold text-slate-500 uppercase">Expenses</span><div class="text-xl font-black text-rose-600">৳ <span id="rep-exp">0</span></div></div>
+                <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm"><span class="text-[10px] font-bold text-slate-500 uppercase">Net Cash</span><div class="text-xl font-black text-medical-600">৳ <span id="rep-net">0</span></div></div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="p-4 border-b border-slate-100 font-bold text-sm text-slate-700"><i class="fa-solid fa-credit-card text-medical-600"></i> Payment Method Wise Collection</div>
+                    <table class="w-full text-xs"><tbody id="rep-method-body" class="divide-y divide-slate-100"></tbody></table>
+                </div>
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="p-4 border-b border-slate-100 font-bold text-sm text-slate-700"><i class="fa-solid fa-vials text-brand-600"></i> Test Wise Sales (Top)</div>
+                    <div class="overflow-x-auto max-h-72">
+                        <table class="w-full text-xs"><thead class="bg-slate-50 text-[10px] uppercase font-bold text-slate-500 sticky top-0"><tr><th class="p-2.5 text-left">Test</th><th class="p-2.5 text-center">Qty</th><th class="p-2.5 text-right">Amount</th></tr></thead><tbody id="rep-tests-body" class="divide-y divide-slate-100"></tbody></table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="p-4 border-b border-slate-100 font-bold text-sm text-slate-700"><i class="fa-solid fa-triangle-exclamation text-rose-600"></i> Outstanding Due List (All Time)</div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs"><thead class="bg-slate-50 text-[10px] uppercase font-bold text-slate-500"><tr><th class="p-3 text-left">Invoice</th><th class="p-3 text-left">Patient</th><th class="p-3 text-left">Mobile</th><th class="p-3 text-right">Due</th><th class="p-3 text-center">Action</th></tr></thead><tbody id="rep-due-body" class="divide-y divide-slate-100"></tbody></table>
+                </div>
+            </div>
+        </section>
+
+        <!-- 5. EXPENSES -->
+        <section id="tab-expenses" class="tab-content space-y-6 hidden">
+            <div class="border-b border-slate-200 pb-4">
+                <h2 class="text-2xl font-black text-slate-800 flex items-center gap-2"><i class="fa-solid fa-money-bill-transfer text-rose-600"></i> Expense Tracker</h2>
+                <p class="text-xs text-slate-500">দৈনন্দিন খরচের হিসাব রাখুন — Rent, Salary, Reagents ইত্যাদি।</p>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <div class="lg:col-span-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                    <h3 class="font-bold text-slate-800 text-base border-b border-slate-100 pb-3 flex items-center gap-2"><i class="fa-solid fa-plus-circle text-rose-600"></i> Add New Expense</h3>
+                    <form onsubmit="addExpense(event)" class="space-y-3">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div><label class="block text-xs font-bold text-slate-600 uppercase mb-1">Date *</label><input type="date" id="exp-date" required class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm"></div>
+                            <div><label class="block text-xs font-bold text-slate-600 uppercase mb-1">Category</label>
+                                <select id="exp-cat" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm bg-white"></select>
+                            </div>
+                        </div>
+                        <div><label class="block text-xs font-bold text-slate-600 uppercase mb-1">Description</label><input type="text" id="exp-desc" placeholder="e.g. CBC reagent kits purchase" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm"></div>
+                        <div><label class="block text-xs font-bold text-slate-600 uppercase mb-1">Amount (BDT) *</label><input type="number" id="exp-amount" min="1" step="0.01" required placeholder="0.00" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm font-bold"></div>
+                        <button type="submit" class="w-full py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs shadow transition flex items-center justify-center gap-1.5"><i class="fa-solid fa-minus"></i> Add Expense</button>
+                    </form>
+                </div>
+                <div class="lg:col-span-8 space-y-4">
+                    <div class="grid grid-cols-3 gap-4">
+                        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm"><span class="text-[10px] font-bold text-slate-500 uppercase">Today</span><div class="text-lg font-black text-rose-600">৳ <span id="exp-today">0</span></div></div>
+                        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm"><span class="text-[10px] font-bold text-slate-500 uppercase">This Month</span><div class="text-lg font-black text-rose-600">৳ <span id="exp-month">0</span></div></div>
+                        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm"><span class="text-[10px] font-bold text-slate-500 uppercase">All Time</span><div class="text-lg font-black text-slate-800">৳ <span id="exp-total">0</span></div></div>
+                    </div>
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div class="overflow-x-auto max-h-96">
+                            <table class="w-full text-xs sm:text-sm">
+                                <thead class="bg-slate-50 text-[10px] uppercase font-bold text-slate-500 sticky top-0"><tr>
+                                    <th class="p-3 text-left">Date</th><th class="p-3 text-left">Category</th><th class="p-3 text-left">Description</th><th class="p-3 text-right">Amount</th><th class="p-3 text-center">Del</th>
+                                </tr></thead>
+                                <tbody id="exp-table-body" class="divide-y divide-slate-100"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 6. DOCTORS -->
+        <section id="tab-doctors" class="tab-content space-y-6 hidden">
+            <div class="border-b border-slate-200 pb-4">
+                <h2 class="text-2xl font-black text-slate-800 flex items-center gap-2"><i class="fa-solid fa-user-doctor text-sky-600"></i> Referral Doctors & Commission</h2>
+                <p class="text-xs text-slate-500">রেফারেল ডাক্তার ম্যানেজমেন্ট — commission percentage ও ডাক্তার-ভিত্তিক রেভিনিউ।</p>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <div class="lg:col-span-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                    <h3 class="font-bold text-slate-800 text-base border-b border-slate-100 pb-3 flex items-center gap-2"><i class="fa-solid fa-plus-circle text-sky-600"></i> Add Referral Doctor</h3>
+                    <form onsubmit="addDoctor(event)" class="space-y-3">
+                        <div><label class="block text-xs font-bold text-slate-600 uppercase mb-1">Doctor Name *</label><input type="text" id="doc-name" required placeholder="Dr. Name, Degree" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm"></div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div><label class="block text-xs font-bold text-slate-600 uppercase mb-1">Specialty</label><input type="text" id="doc-spec" placeholder="Medicine" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm"></div>
+                            <div><label class="block text-xs font-bold text-slate-600 uppercase mb-1">Commission %</label><input type="number" id="doc-comm" min="0" max="100" value="10" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm"></div>
+                        </div>
+                        <div><label class="block text-xs font-bold text-slate-600 uppercase mb-1">Phone</label><input type="text" id="doc-phone" placeholder="017xxxxxxxx" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm"></div>
+                        <button type="submit" class="w-full py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl font-bold text-xs shadow transition flex items-center justify-center gap-1.5"><i class="fa-solid fa-user-plus"></i> Add Doctor</button>
+                    </form>
+                </div>
+                <div class="lg:col-span-8 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-xs sm:text-sm">
+                            <thead class="bg-slate-50 text-[10px] uppercase font-bold text-slate-500"><tr>
+                                <th class="p-3 pl-5 text-left">Doctor</th><th class="p-3 text-left">Specialty</th><th class="p-3 text-left">Phone</th>
+                                <th class="p-3 text-center">Comm %</th><th class="p-3 text-center">Referrals</th><th class="p-3 text-right">Revenue</th><th class="p-3 text-right">Payable</th><th class="p-3 text-center">Del</th>
+                            </tr></thead>
+                            <tbody id="doc-table-body" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 7. SETTINGS -->
+        <section id="tab-settings" class="tab-content space-y-6 hidden">
+            <div class="border-b border-slate-200 pb-4">
+                <h2 class="text-2xl font-black text-slate-800 flex items-center gap-2"><i class="fa-solid fa-sliders text-amber-600"></i> Hospital & Diagnostic Settings</h2>
+                <p class="text-xs text-slate-500">হসপিটাল প্রোফাইল, লোগো, রশিদ footer note ও টেস্ট প্রাইস ম্যানেজ করুন।</p>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <div class="lg:col-span-7 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
+                    <h3 class="font-bold text-slate-800 text-base border-b border-slate-100 pb-3 flex items-center gap-2"><i class="fa-solid fa-hospital-user text-medical-600"></i> Hospital Branding & Details</h3>
+                    <form id="hospital-settings-form" onsubmit="saveHospitalSettings(event)" class="space-y-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div><label class="block text-xs font-bold text-slate-600 uppercase mb-1">Hospital Name (English) *</label><input type="text" id="set-hospital-name" required class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm"></div>
+                            <div><label class="block text-xs font-bold text-slate-600 uppercase mb-1">Hospital Name (Bengali)</label><input type="text" id="set-hospital-bn" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm"></div>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div><label class="block text-xs font-bold text-slate-600 uppercase mb-1">Phone Number *</label><input type="text" id="set-hospital-phone" required class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm"></div>
+                            <div><label class="block text-xs font-bold text-slate-600 uppercase mb-1">BIN / Trade License</label><input type="text" id="set-hospital-bin" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm"></div>
+                        </div>
+                        <div><label class="block text-xs font-bold text-slate-600 uppercase mb-1">Full Address / ঠিকানা *</label><textarea id="set-hospital-address" rows="2" required class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm"></textarea></div>
+                        <div><label class="block text-xs font-bold text-slate-600 uppercase mb-1">Receipt Footer Note / রশিদের নিচের নোট</label><input type="text" id="set-footer-note" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm" placeholder="Thank you message for receipt"></div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div><label class="block text-xs font-bold text-slate-600 uppercase mb-1">Default Report Delivery (Hours)</label><input type="number" id="set-delivery-hours" min="1" value="24" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm"></div>
+                        </div>
+                        <div class="pt-2 border-t border-slate-100">
+                            <label class="block text-xs font-bold text-slate-600 uppercase mb-2">Hospital Logo</label>
+                            <div class="flex items-center gap-4">
+                                <div class="w-20 h-20 rounded-xl border-2 border-dashed border-slate-300 flex items-center justify-center bg-slate-50 overflow-hidden relative">
+                                    <i class="fa-solid fa-image text-slate-300 text-2xl" id="logo-placeholder-icon"></i>
+                                    <img id="logo-preview-img" class="w-full h-full object-contain hidden" alt="logo">
+                                </div>
+                                <div class="flex-1">
+                                    <input type="file" id="set-logo-input" accept="image/*" onchange="handleLogoUpload(this)" class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-medical-50 file:text-medical-700 hover:file:bg-medical-100">
+                                    <p class="text-[11px] text-slate-400 mt-1">PNG/JPG logo — প্রিন্টেবল রশিদে দেখাবে।</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="pt-2 flex justify-end">
+                            <button type="submit" class="px-6 py-2.5 bg-medical-600 hover:bg-medical-700 text-white font-bold text-sm rounded-xl shadow transition flex items-center gap-2"><i class="fa-solid fa-check"></i> Save Settings</button>
+                        </div>
+                    </form>
+                </div>
+                <div class="lg:col-span-5 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                    <h3 class="font-bold text-slate-800 text-base border-b border-slate-100 pb-3 flex items-center gap-2"><i class="fa-solid fa-vials text-brand-600"></i> Test Directory & Pricing</h3>
+                    <form onsubmit="addDirectoryTest(event)" class="space-y-2">
+                        <input type="text" id="dir-test-name" required placeholder="New test name e.g. Serum Electrolytes" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm">
+                        <div class="grid grid-cols-2 gap-2">
+                            <select id="dir-test-cat" class="px-3 py-2 border border-slate-300 rounded-xl text-sm bg-white">
+                                <option value="Pathology">Pathology</option><option value="Biochemistry">Biochemistry</option>
+                                <option value="Radiology">Radiology</option><option value="Cardiology">Cardiology</option>
+                                <option value="Microbiology">Microbiology</option><option value="Immunology">Immunology</option><option value="Custom">Custom</option>
+                            </select>
+                            <input type="number" id="dir-test-price" required min="1" placeholder="Price ৳" class="px-3 py-2 border border-slate-300 rounded-xl text-sm">
+                        </div>
+                        <button type="submit" class="w-full py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-bold text-xs shadow transition flex items-center justify-center gap-1.5"><i class="fa-solid fa-plus"></i> Add Test to Directory</button>
+                    </form>
+                    <div class="border border-slate-200 rounded-xl overflow-hidden">
+                        <div class="max-h-80 overflow-y-auto">
+                            <table class="w-full text-xs">
+                                <thead class="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold border-b border-slate-200 sticky top-0">
+                                    <tr><th class="p-2.5 text-left">Test</th><th class="p-2.5 text-left">Cat</th><th class="p-2.5 text-right">Price ৳</th><th class="p-2.5 text-center">Del</th></tr>
+                                </thead>
+                                <tbody id="test-directory-body" class="divide-y divide-slate-100"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 8. SAAS ADMIN -->
+        <section id="tab-admin" class="tab-content space-y-6 hidden">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-4">
+                <div>
+                    <h2 class="text-2xl font-black text-slate-800 flex items-center gap-2"><i class="fa-solid fa-user-shield text-rose-600"></i> SaaS Super Admin Control Panel</h2>
+                    <p class="text-xs text-slate-500">সব হসপিটাল tenant, subscription, backup ও platform revenue ম্যানেজ করুন।</p>
+                </div>
+                <span class="bg-rose-100 text-rose-700 text-[10px] font-black px-3 py-1.5 rounded-full border border-rose-200 w-fit">RESTRICTED AREA</span>
+            </div>
+
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm"><span class="text-xs font-bold text-slate-500 uppercase">Total Tenants</span><div class="text-2xl font-black text-slate-800 mt-1" id="saas-stat-tenants">0</div></div>
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm"><span class="text-xs font-bold text-slate-500 uppercase">Active</span><div class="text-2xl font-black text-emerald-600 mt-1" id="saas-stat-active">0</div></div>
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm"><span class="text-xs font-bold text-slate-500 uppercase">Locked / Expired</span><div class="text-2xl font-black text-rose-600 mt-1" id="saas-stat-locked">0</div></div>
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm"><span class="text-xs font-bold text-slate-500 uppercase">MRR (Monthly)</span><div class="text-2xl font-black text-medical-600 mt-1">৳ <span id="saas-stat-mrr">0</span></div></div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                    <h3 class="font-bold text-slate-800 text-base border-b border-slate-100 pb-3 flex items-center gap-2"><i class="fa-solid fa-plus-circle text-brand-600"></i> Add New Tenant</h3>
+                    <form id="add-tenant-form" onsubmit="addTenant(event)" class="space-y-3">
+                        <input type="text" id="nt-name" required placeholder="Hospital / Diagnostic Name *" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm">
+                        <input type="text" id="nt-branch" placeholder="Branch Name" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm">
+                        <input type="text" id="nt-phone" placeholder="Phone Number" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm">
+                        <div class="grid grid-cols-2 gap-2">
+                            <input type="number" id="nt-rent" required min="0" placeholder="Monthly Rent ৳" class="px-3 py-2 border border-slate-300 rounded-xl text-sm">
+                            <input type="number" id="nt-months" required min="1" value="1" placeholder="Months" class="px-3 py-2 border border-slate-300 rounded-xl text-sm">
+                        </div>
+                        <button type="submit" class="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs shadow transition flex items-center justify-center gap-1.5"><i class="fa-solid fa-building-circle-plus"></i> Create Tenant</button>
+                    </form>
+                </div>
+                <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead><tr class="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold border-b border-slate-200">
+                                <th class="p-3 pl-5">Tenant</th><th class="p-3">ID</th><th class="p-3">Phone</th><th class="p-3 text-right">Rent</th><th class="p-3">Valid Until</th><th class="p-3 text-center">Status</th><th class="p-3 text-center">Actions</th>
+                            </tr></thead>
+                            <tbody id="saas-tenant-table" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                    <h3 class="font-bold text-slate-800 text-sm border-b border-slate-100 pb-3 flex items-center gap-2"><i class="fa-solid fa-key text-amber-600"></i> Change Admin Password</h3>
+                    <form onsubmit="changeAdminPassword(event)" class="space-y-2">
+                        <input type="password" id="np1" required placeholder="New Password (min 4 chars)" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm">
+                        <input type="password" id="np2" required placeholder="Confirm New Password" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-sm">
+                        <button type="submit" class="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold text-xs shadow transition"><i class="fa-solid fa-key"></i> Update Password</button>
+                    </form>
+                </div>
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                    <h3 class="font-bold text-slate-800 text-sm border-b border-slate-100 pb-3 flex items-center gap-2"><i class="fa-solid fa-database text-medical-600"></i> Backup & Restore</h3>
+                    <button onclick="downloadBackup()" class="w-full py-2 bg-medical-600 hover:bg-medical-700 text-white rounded-xl font-bold text-xs shadow transition"><i class="fa-solid fa-download"></i> Download Full Backup (JSON)</button>
+                    <input type="file" id="restore-file" accept="application/json,.json" onchange="restoreBackup(this)" class="hidden">
+                    <button onclick="document.getElementById('restore-file').click()" class="w-full py-2 bg-slate-700 hover:bg-slate-800 text-white rounded-xl font-bold text-xs shadow transition"><i class="fa-solid fa-upload"></i> Restore From Backup</button>
+                    <p class="text-[11px] text-slate-400">Backup-এ সব tenant-এর বিল, খরচ, ডাক্তার ও সেটিংস থাকে।</p>
+                </div>
+                <div class="bg-white p-5 rounded-2xl border border-rose-200 shadow-sm space-y-3">
+                    <h3 class="font-bold text-rose-700 text-sm border-b border-rose-100 pb-3 flex items-center gap-2"><i class="fa-solid fa-radiation text-rose-600"></i> Danger Zone</h3>
+                    <button onclick="wipeTenantData()" class="w-full py-2 bg-rose-100 hover:bg-rose-200 text-rose-700 border border-rose-200 rounded-xl font-bold text-xs transition"><i class="fa-solid fa-trash"></i> Wipe Active Tenant's Bills & Expenses</button>
+                    <p class="text-[11px] text-slate-400">শুধু এই tenant-এর বিল ও খরচ মুছে যাবে — টেস্ট লিস্ট ও সেটিংস থাকবে।</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="bg-slate-900 text-slate-400 text-center text-xs py-4">
+        MedEasy BD SaaS v5.0 • Complete Hospital & Diagnostic Management • Data stored in this browser • © 2025
+    </footer>
+
+    <script>
+    'use strict';
+    /* ============ MEDASY BD v5.0 CORE ============ */
+    const ADMIN_DEFAULT = '5565232070';
+    const LS = {
+        tenants:'mebd_tenants', active:'mebd_active', pass:'mebd_pass', seed:'mebd_seed',
+        inv:t=>'mebd_inv_'+t, set:t=>'mebd_set_'+t, tests:t=>'mebd_tests_'+t, exp:t=>'mebd_exp_'+t, doc:t=>'mebd_doc_'+t
+    };
+    const EXP_CATS = ['Rent','Salary','Utilities','Reagents & Consumables','Equipment','Marketing','Maintenance','Transport','Other'];
+
+    let tenants=[], activeId=null, invoices=[], tests=[], expenses=[], doctors=[], settings={};
+    let selectedTests=[], pendingAction=null, editingId=null, dueId=null, scanner=null, revChart=null, catChart=null;
+
+    /* ---------- Helpers ---------- */
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const fmt = (n) => Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const uid = (p) => p + Math.random().toString(36).slice(2,8).toUpperCase();
+    function pad2(n){return String(n).padStart(2,'0');}
+    function todayStr(){const d=new Date();return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());}
+    function localDateStr(iso){ if(!iso) return ''; if(/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso; const d=new Date(iso); if(isNaN(d)) return ''; return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+    function inRange(iso,f,t){ const d=localDateStr(iso); return (!f||d>=f) && (!t||d<=t); }
+    function fmtDT(iso){ if(!iso) return '--'; const d=new Date(iso); return d.toLocaleDateString('en-GB')+' '+d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}); }
+    function toLocalInput(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())+'T'+pad2(d.getHours())+':'+pad2(d.getMinutes()); }
+    function loadJSON(k,f){ try{ const v=localStorage.getItem(k); return v==null?f:JSON.parse(v); }catch(e){ return f; } }
+    function saveJSON(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){ toast('Storage save failed!','error'); } }
+    function openModal(id){ $(id).style.display='flex'; }
+    function closeModal(id){ $(id).style.display='none'; }
+    function downloadFile(name,content,mime){ const b=new Blob([content],{type:mime||'text/plain'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); }
+
+    function toast(msg,type='success'){
+        const colors={success:'bg-emerald-600',error:'bg-rose-600',info:'bg-medical-600',warn:'bg-amber-500'};
+        const icons={success:'fa-circle-check',error:'fa-circle-exclamation',info:'fa-circle-info',warn:'fa-triangle-exclamation'};
+        const el=document.createElement('div');
+        el.className=(colors[type]||colors.success)+' text-white text-sm font-semibold px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 pointer-events-auto transition-opacity duration-300';
+        el.innerHTML='<i class="fa-solid '+(icons[type]||icons.success)+'"></i> '+esc(msg);
+        $('toast-container').appendChild(el);
+        setTimeout(()=>{ el.style.opacity='0'; setTimeout(()=>el.remove(),300); },3200);
+    }
+
+    /* ---------- Defaults ---------- */
+    const DEFAULT_SETTINGS = {
+        nameEn:'Popular Diagnostic Center', nameBn:'পপুলার ডায়াগনস্টিক সেন্টার',
+        phone:'01712-000000', bin:'BIN-003456789-0101',
+        address:'House #16, Road #2, Dhanmondi, Dhaka-1205', logo:'',
+        footerNote:'রিপোর্ট সংগ্রহের সময় এই রশিদটি দিন। ধন্যবাদ!', deliveryHours:24
+    };
+    const DEFAULT_TESTS = [
+        {id:'T01',name:'CBC (Complete Blood Count)',category:'Pathology',price:400},
+        {id:'T02',name:'ESR',category:'Pathology',price:200},
+        {id:'T03',name:'Blood Grouping & Rh Typing',category:'Pathology',price:150},
+        {id:'T04',name:'FBS (Fasting Blood Sugar)',category:'Pathology',price:120},
+        {id:'T05',name:'2HABF (Post Prandial Sugar)',category:'Pathology',price:120},
+        {id:'T06',name:'RBS (Random Blood Sugar)',category:'Pathology',price:100},
+        {id:'T07',name:'Urine R/E',category:'Pathology',price:150},
+        {id:'T08',name:'Stool R/E',category:'Pathology',price:150},
+        {id:'T09',name:'S. Creatinine',category:'Biochemistry',price:250},
+        {id:'T10',name:'S. Uric Acid',category:'Biochemistry',price:300},
+        {id:'T11',name:'SGPT (ALT)',category:'Biochemistry',price:250},
+        {id:'T12',name:'SGOT (AST)',category:'Biochemistry',price:250},
+        {id:'T13',name:'Lipid Profile (Fasting)',category:'Biochemistry',price:700},
+        {id:'T14',name:'HbA1c',category:'Biochemistry',price:800},
+        {id:'T15',name:'TSH',category:'Immunology',price:500},
+        {id:'T16',name:'FT4 (Free T4)',category:'Immunology',price:500},
+        {id:'T17',name:'Dengue NS1 Antigen',category:'Immunology',price:600},
+        {id:'T18',name:'Dengue IgG / IgM',category:'Immunology',price:500},
+        {id:'T19',name:'CRP',category:'Immunology',price:500},
+        {id:'T20',name:'HBsAg (Hepatitis B)',category:'Immunology',price:300},
+        {id:'T21',name:'Widal Test',category:'Microbiology',price:300},
+        {id:'T22',name:'Urine C/S',category:'Microbiology',price:600},
+        {id:'T23',name:'X-Ray Chest P/A View',category:'Radiology',price:350},
+        {id:'T24',name:'USG Whole Abdomen',category:'Radiology',price:1000},
+        {id:'T25',name:'USG Lower Abdomen',category:'Radiology',price:800},
+        {id:'T26',name:'USG Pregnancy Profile',category:'Radiology',price:900},
+        {id:'T27',name:'CT Scan Brain (Plain)',category:'Radiology',price:3500},
+        {id:'T28',name:'MRI Brain (Plain)',category:'Radiology',price:8000},
+        {id:'T29',name:'ECG (12 Lead)',category:'Cardiology',price:300},
+        {id:'T30',name:'Echocardiography (ECHO)',category:'Cardiology',price:1500},
+        {id:'T31',name:'ETT',category:'Cardiology',price:1200}
+    ];
+    const DEFAULT_DOCTORS = [
+        {id:'D01',name:'Dr. M. A. Jalil, FCPS (Medicine)',spec:'Medicine',phone:'01711111111',commission:10},
+        {id:'D02',name:'Prof. Dr. Farhana Chowdhury, Gynecologist',spec:'Gynecology',phone:'01712222222',commission:12},
+        {id:'D03',name:'Dr. Tanvir Ahmed, Cardiologist',spec:'Cardiology',phone:'01713333333',commission:8}
+    ];
+
+    /* ---------- Tenant Data ---------- */
+    function defaultTenant(){
+        const d=new Date(); d.setMonth(d.getMonth()+1);
+        return { id:'TNT-0001', name:'Popular Diagnostic Center', branch:'Dhanmondi Branch', phone:'01712-000000',
+            rent:2500, subscribedUntil:d.toISOString(), status:'ACTIVE', createdAt:new Date().toISOString() };
+    }
+    function loadTenantData(tid){
+        activeId=tid; saveJSON(LS.active,tid);
+        invoices=loadJSON(LS.inv(tid),[]);
+        tests=loadJSON(LS.tests(tid),null);
+        if(!tests||!tests.length){ tests=JSON.parse(JSON.stringify(DEFAULT_TESTS)); saveJSON(LS.tests(tid),tests); }
+        expenses=loadJSON(LS.exp(tid),[]);
+        doctors=loadJSON(LS.doc(tid),null);
+        if(!doctors||!doctors.length){ doctors=JSON.parse(JSON.stringify(DEFAULT_DOCTORS)); saveJSON(LS.doc(tid),doctors); }
+        settings=Object.assign({},DEFAULT_SETTINGS,loadJSON(LS.set(tid),{}));
+    }
+    function seedDemo(){
+        if(localStorage.getItem(LS.seed) || invoices.length) return;
+        const dNames=doctors.map(d=>d.name);
+        const mk=(daysAgo,name,phone,age,gender,doc,items,paid)=>{
+            const d=new Date(); d.setDate(d.getDate()-daysAgo);
+            const sub=items.reduce((s,i)=>s+i.price,0);
+            return { id:'INV-DEMO-'+daysAgo+Math.floor(Math.random()*90+10), patientId:'PAT-'+Math.floor(10000+Math.random()*89999),
+                patientName:name, patientPhone:phone, patientAge:age, patientGender:gender, refDoctor:doc,
+                deliveryDate:'', deliveryStatus:'PENDING',
+                items, subtotal:sub, discount:0, taxPercent:0, taxAmount:0, grandTotal:sub, paid, due:sub-paid,
+                paymentMethod:'Cash', date:d.toISOString(), payments: paid>0?[{amount:paid,method:'Cash',at:d.toISOString()}]:[],
+                status:(sub-paid)<=0?'PAID':'PARTIAL' };
+        };
+        invoices=[
+            mk(0,'Md. Kabir Hossain','01712345678','45 Years','Male',dNames[0]||'Self',
+                [{name:'CBC (Complete Blood Count)',category:'Pathology',price:400},{name:'FBS (Fasting Blood Sugar)',category:'Pathology',price:120}],520),
+            mk(0,'Mrs. Ayesha Siddika','01819876543','30 Years','Female',dNames[1]||'Self',
+                [{name:'USG Whole Abdomen',category:'Radiology',price:1000}],0),
+            mk(1,'Rafiqul Islam','01911223344','52 Years','Male',dNames[2]||'Self',
+                [{name:'ECG (12 Lead)',category:'Cardiology',price:300},{name:'Lipid Profile (Fasting)',category:'Biochemistry',price:700}],1000)
+        ];
+        expenses=[
+            {id:uid('EX'),date:todayStr(),cat:'Reagents & Consumables',desc:'CBC reagent kits',amount:3500},
+            {id:uid('EX'),date:todayStr(),cat:'Utilities',desc:'Electricity bill',amount:2200}
+        ];
+        saveJSON(LS.inv(activeId),invoices);
+        saveJSON(LS.exp(activeId),expenses);
+        localStorage.setItem(LS.seed,'1');
+    }
+    function init(){
+        tenants=loadJSON(LS.tenants,null);
+        if(!tenants||!tenants.length){ tenants=[defaultTenant()]; saveJSON(LS.tenants,tenants); }
+        activeId=loadJSON(LS.active,null);
+        if(!activeId || !tenants.find(t=>t.id===activeId)) activeId=tenants[0].id;
+        loadTenantData(activeId);
+        seedDemo();
+        $('exp-date').value=todayStr();
+        const r=setRange('month');
+        resetInvoiceForm();
+        renderAll();
+        switchTab('dashboard');
+        checkTenantLock();
+        // Click outside closes closable modals
+        ['custom-test-modal','due-modal','switch-tenant-modal','scanner-modal'].forEach(id=>{
+            const ov=$(id);
+            ov.addEventListener('mousedown',e=>{ if(e.target===ov){ if(id==='scanner-modal') closeScannerModal(); else if(id==='custom-test-modal') closeCustomTestModal(); else if(id==='due-modal') closeModal(id); else closeModal(id); } });
+        });
+        toast('Welcome to MedEasy BD v5.0','info');
+    }
+
+    /* ---------- Tabs ---------- */
+    function switchTab(tab){
+        document.querySelectorAll('.tab-content').forEach(s=>s.classList.add('hidden'));
+        const sec=$('tab-'+tab); if(sec) sec.classList.remove('hidden');
+        document.querySelectorAll('.nav-btn').forEach(b=>{ b.classList.remove('bg-medical-50','text-medical-700'); });
+        const btn=$('nav-'+tab); if(btn) btn.classList.add('bg-medical-50','text-medical-700');
+        window.scrollTo({top:0,behavior:'smooth'});
+        if(tab==='dashboard') renderDashboard();
+        if(tab==='patients') renderPatientRecordsTable();
+        if(tab==='reports') renderReports();
+        if(tab==='admin') renderSaaSAdmin();
+    }
+
+    /* ---------- Security ---------- */
+    function promptSaaSAdminAuth(action,payload=null){
+        pendingAction={action,payload};
+        const titles={
+            open_admin:['SaaS Super Admin Access','Enter admin password to open the control panel.'],
+            switch_tenant:['Tenant Switch Verification','Enter admin password to switch hospital tenant.'],
+            switch_tenant_unrestricted:['SaaS Emergency Unlock','Enter admin password to unlock or switch tenant.'],
+            delete_invoice:['Danger Zone — Delete Invoice','Enter admin password to permanently delete this invoice.'],
+            delete_tenant:['Danger Zone — Delete Tenant','Enter admin password to permanently delete this tenant & all its data.']
+        };
+        const t=titles[action]||['Security Verification','Enter Super Admin Password to proceed.'];
+        $('sec-modal-title').textContent=t[0];
+        $('sec-modal-subtitle').textContent=t[1];
+        $('sec-modal-error').classList.add('hidden');
+        $('sec-password-input').value='';
+        openModal('security-modal');
+        setTimeout(()=>$('sec-password-input').focus(),80);
+    }
+    function togglePassVisibility(){
+        const i=$('sec-password-input'),ic=$('pass-eye-icon');
+        if(i.type==='password'){ i.type='text'; ic.className='fa-solid fa-eye-slash'; }
+        else { i.type='password'; ic.className='fa-solid fa-eye'; }
+    }
+    function verifyAdminPassword(e){
+        e.preventDefault();
+        const stored=localStorage.getItem(LS.pass)||ADMIN_DEFAULT;
+        if($('sec-password-input').value.trim()!==stored){
+            $('sec-modal-error').classList.remove('hidden');
+            $('sec-modal-error').classList.add('flex');
+            return;
+        }
+        closeModal('security-modal');
+        const a=pendingAction; pendingAction=null;
+        if(!a) return;
+        switch(a.action){
+            case 'open_admin': switchTab('admin'); break;
+            case 'switch_tenant': case 'switch_tenant_unrestricted': openSwitchTenantModal(); break;
+            case 'delete_invoice': doDeleteInvoice(a.payload); break;
+            case 'delete_tenant': doDeleteTenant(a.payload); break;
+        }
+    }
+
+    /* ---------- Tenant Lock ---------- */
+    function isTenantActive(t){ return t.status==='ACTIVE' && new Date(t.subscribedUntil)>new Date(); }
+    function checkTenantLock(){
+        const t=tenants.find(x=>x.id===activeId); if(!t) return;
+        const ok=isTenantActive(t);
+        $('tenant-lock-overlay').style.display= ok?'none':'flex';
+        if(!ok){
+            $('lock-tenant-name').textContent=t.name;
+            $('lock-tenant-id').textContent=t.id;
+            $('lock-tenant-rent').textContent=Number(t.rent||0).toLocaleString();
+        }
+    }
+
+    /* ---------- Update Tenant UI ---------- */
+    function updateTenantUI(){
+        const t=tenants.find(x=>x.id===activeId); if(!t) return;
+        $('header-active-tenant-name').textContent=t.name;
+        $('dash-tenant-title').textContent=t.name+(t.branch?' — '+t.branch:'');
+        $('dash-tenant-subtitle').textContent=(t.branch?t.branch+' | ':'')+'Real-time Invoice & Revenue Analytics';
+    }
+
+    /* ---------- Billing ---------- */
+    function generatePatientId(){ return 'PAT-'+Math.floor(10000+Math.random()*90000); }
+    function nextInvoiceNo(){
+        const d=new Date();
+        const ymd=''+d.getFullYear()+pad2(d.getMonth()+1)+pad2(d.getDate());
+        const n=invoices.filter(i=>String(i.id||'').includes(ymd)).length+1;
+        return 'INV-'+ymd+'-'+String(n).padStart(3,'0');
+    }
+    function renderTestSelector(){
+        const sel=$('inv-test-selector');
+        const cats=[...new Set(tests.map(t=>t.category))];
+        sel.innerHTML='<option value="">-- Choose Diagnostic Test / পরীক্ষা সিলেক্ট করুন --</option>'+
+            cats.map(c=>'<optgroup label="'+esc(c)+'">'+tests.filter(t=>t.category===c)
+                .map(t=>'<option value="'+esc(t.id)+'">'+esc(t.name)+' — ৳'+t.price+'</option>').join('')+'</optgroup>').join('');
+    }
+    function handleAddSelectedTest(){
+        const id=$('inv-test-selector').value; if(!id) return;
+        if(selectedTests.some(t=>t.id===id)){ toast('This test is already added!','warn'); $('inv-test-selector').value=''; return; }
+        const t=tests.find(x=>x.id===id); if(!t) return;
+        selectedTests.push({id:t.id,name:t.name,category:t.category,price:Number(t.price)});
+        $('inv-test-selector').value='';
+        renderSelectedTests(); calculateBillingTotals();
+    }
+    function removeSelectedTest(i){ selectedTests.splice(i,1); renderSelectedTests(); calculateBillingTotals(); }
+    function renderSelectedTests(){
+        const tb=$('inv-selected-tests-body');
+        if(!selectedTests.length){
+            tb.innerHTML='<tr><td colspan="5" class="p-8 text-center text-slate-400 italic"><i class="fa-solid fa-microscope text-3xl mb-2 block text-slate-300"></i>No diagnostic tests selected yet. Choose a test from above.</td></tr>';
+            return;
+        }
+        tb.innerHTML=selectedTests.map((t,idx)=>'<tr class="hover:bg-slate-50">'+
+            '<td class="p-3">'+(idx+1)+'</td>'+
+            '<td class="p-3 font-semibold text-slate-800">'+esc(t.name)+'</td>'+
+            '<td class="p-3"><span class="text-[10px] bg-slate-100 px-2 py-0.5 rounded-full font-bold text-slate-600">'+esc(t.category)+'</span></td>'+
+            '<td class="p-3 text-right font-bold">৳'+fmt(t.price)+'</td>'+
+            '<td class="p-3 text-center"><button type="button" onclick="removeSelectedTest('+idx+')" class="text-rose-500 hover:text-rose-700"><i class="fa-solid fa-circle-xmark"></i></button></td></tr>').join('');
+    }
+    function calculateBillingTotals(){
+        const subtotal=selectedTests.reduce((s,t)=>s+Number(t.price||0),0);
+        const discount=Number($('inv-discount-input').value||0);
+        const taxPct=Number($('inv-tax-input').value||0);
+        const taxable=Math.max(subtotal-discount,0);
+        const taxAmt=taxable*taxPct/100;
+        const grand=taxable+taxAmt;
+        const paid=Number($('inv-paid-input').value||0);
+        const due=Math.max(grand-paid,0);
+        $('inv-subtotal').textContent=fmt(subtotal);
+        $('inv-grand-total').textContent=fmt(grand);
+        $('inv-due-total').textContent=fmt(due);
+        return {subtotal,discount,taxPct,taxAmt,grand,paid,due};
+    }
+    function saveCurrentInvoice(){
+        if(!selectedTests.length) return null;
+        const tot=calculateBillingTotals();
+        const existing=editingId?invoices.find(i=>i.id===editingId):null;
+        let patientId=$('inv-patient-id').value;
+        if(!existing){
+            const prev=invoices.find(i=>i.patientPhone===$('inv-patient-phone').value.trim());
+            if(prev) patientId=prev.patientId;
+        }
+        const paidNow=tot.paid;
+        const method=$('inv-payment-method').value;
+        const inv={
+            id: existing?existing.id:nextInvoiceNo(),
+            patientId,
+            patientName:$('inv-patient-name').value.trim(),
+            patientPhone:$('inv-patient-phone').value.trim(),
+            patientAge:$('inv-patient-age').value.trim(),
+            patientGender:$('inv-patient-gender').value,
+            refDoctor:$('inv-ref-doctor').value.trim()||'Self',
+            deliveryDate:$('inv-delivery-date').value,
+            deliveryStatus: existing?(existing.deliveryStatus||'PENDING'):'PENDING',
+            items:[...selectedTests],
+            subtotal:tot.subtotal, discount:tot.discount, taxPercent:tot.taxPct, taxAmount:tot.taxAmt,
+            grandTotal:tot.grand, paid:tot.paid, due:tot.due,
+            paymentMethod:method,
+            date: existing?existing.date:new Date().toISOString(),
+            payments: paidNow>0?[{amount:paidNow,method,at:new Date().toISOString()}]:[],
+            status: tot.due<=0.001?'PAID':(tot.paid>0?'PARTIAL':'DUE')
+        };
+        if(existing){ const idx=invoices.findIndex(i=>i.id===existing.id); invoices[idx]=inv; }
+        else invoices.unshift(inv);
+        saveJSON(LS.inv(activeId),invoices);
+        return inv.id;
+    }
+    function saveInvoiceOnly(e){
+        e.preventDefault();
+        if(!selectedTests.length){ toast('Please add at least one diagnostic test','error'); return; }
+        const id=saveCurrentInvoice();
+        if(id){ toast('Invoice saved: '+id); resetInvoiceForm(); renderDashboard(); renderPatientRecordsTable(); renderReports(); }
+    }
+    function handlePrintInvoice(mode){
+        const form=$('invoice-form');
+        if(!form.reportValidity()){ toast('Please complete required patient fields','error'); return; }
+        if(!selectedTests.length){ toast('Add at least one test first','error'); return; }
+        const id=saveCurrentInvoice(); if(!id) return;
+        toast('Invoice saved. Preparing print...','info');
+        resetInvoiceForm(); renderDashboard(); renderPatientRecordsTable(); renderReports();
+        setTimeout(()=>printInvoiceById(id,mode),250);
+    }
+    function resetInvoiceForm(){
+        $('invoice-form').reset();
+        selectedTests=[]; editingId=null;
+        $('inv-patient-id').value=generatePatientId();
+        $('inv-submit-label').textContent='Save Invoice Only';
+        $('inv-cancel-edit').classList.add('hidden');
+        const dl=new Date(Date.now()+ (Number(settings.deliveryHours)||24)*3600000);
+        $('inv-delivery-date').value=toLocalInput(dl);
+        renderSelectedTests(); calculateBillingTotals();
+    }
+    function editInvoice(id){
+        const inv=invoices.find(i=>i.id===id); if(!inv) return;
+        editingId=id;
+        $('inv-patient-id').value=inv.patientId;
+        $('inv-patient-name').value=inv.patientName;
+        $('inv-patient-phone').value=inv.patientPhone;
+        $('inv-patient-age').value=inv.patientAge||'';
+        $('inv-patient-gender').value=inv.patientGender||'Male';
+        $('inv-ref-doctor').value=inv.refDoctor||'';
+        $('inv-delivery-date').value=inv.deliveryDate||'';
+        $('inv-discount-input').value=inv.discount||0;
+        $('inv-tax-input').value=inv.taxPercent||0;
+        $('inv-paid-input').value=inv.paid||0;
+        $('inv-payment-method').value=inv.paymentMethod||'Cash';
+        selectedTests=(inv.items||[]).map(x=>({id:x.id||uid('CT'),name:x.name,category:x.category,price:Number(x.price)}));
+        $('inv-submit-label').textContent='Update Invoice';
+        $('inv-cancel-edit').classList.remove('hidden');
+        renderSelectedTests(); calculateBillingTotals();
+        switchTab('billing');
+        toast('Editing '+id+'. পরিবর্তন করে Update চাপুন।','info');
+    }
+    function askDeleteInvoice(id){ promptSaaSAdminAuth('delete_invoice',id); }
+    function doDeleteInvoice(id){
+        invoices=invoices.filter(i=>i.id!==id);
+        saveJSON(LS.inv(activeId),invoices);
+        renderDashboard(); renderPatientRecordsTable(); renderReports();
+        toast('Invoice permanently deleted','info');
+    }
+
+    /* ---------- Due Collection ---------- */
+    function openDueModal(id){
+        const inv=invoices.find(i=>i.id===id); if(!inv) return;
+        dueId=id;
+        $('due-modal-info').innerHTML='Invoice <b class="font-mono">'+esc(inv.id)+'</b> • <b>'+esc(inv.patientName)+'</b><br>Current Due: <b class="text-rose-600">৳ '+fmt(inv.due)+'</b>';
+        $('due-amount-input').value=inv.due; $('due-amount-input').max=inv.due;
+        openModal('due-modal');
+    }
+    function submitDueCollection(e){
+        e.preventDefault();
+        const inv=invoices.find(i=>i.id===dueId); if(!inv) return;
+        const amt=Number($('due-amount-input').value||0);
+        if(amt<=0 || amt>Number(inv.due)+0.001){ toast('Invalid collection amount!','error'); return; }
+        inv.paid=Number(inv.paid||0)+amt;
+        inv.due=Math.max(Number(inv.grandTotal)-inv.paid,0);
+        inv.payments=inv.payments||[];
+        inv.payments.push({amount:amt,method:$('due-method').value,at:new Date().toISOString()});
+        inv.status=inv.due<=0.001?'PAID':'PARTIAL';
+        saveJSON(LS.inv(activeId),invoices);
+        closeModal('due-modal'); dueId=null;
+        renderDashboard(); renderPatientRecordsTable(); renderReports();
+        toast('Due collected: ৳'+fmt(amt)+' — '+inv.id);
+    }
+
+    /* ---------- Delivery Status / SMS / WA ---------- */
+    function deliveryBadge(st){
+        if(st==='DELIVERED') return '<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-black">DELIVERED</span>';
+        if(st==='READY') return '<span class="px-2 py-0.5 rounded-full bg-medical-100 text-medical-700 text-[10px] font-black">READY</span>';
+        return '<span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-black">PENDING</span>';
+    }
+    function cycleDelivery(id){
+        const inv=invoices.find(i=>i.id===id); if(!inv) return;
+        const order=['PENDING','READY','DELIVERED'];
+        inv.deliveryStatus=order[(order.indexOf(inv.deliveryStatus||'PENDING')+1)%3];
+        saveJSON(LS.inv(activeId),invoices);
+        renderPatientRecordsTable(); renderDashboard();
+        toast('Report status: '+inv.deliveryStatus,'info');
+    }
+    function normalizePhone(p){ let d=String(p||'').replace(/\D/g,''); if(d.startsWith('880')) return d; if(d.startsWith('0')) return '880'+d.slice(1); return d; }
+    function patientMsg(inv){
+        const st=inv.deliveryStatus==='DELIVERED'?'has been delivered':(inv.deliveryStatus==='READY'?'is ready to collect':'is being processed');
+        return 'Dear '+inv.patientName+', your report for invoice '+inv.id+' ('+settings.nameEn+') '+st+'. — '+settings.phone;
+    }
+    function smsPatient(id){
+        const inv=invoices.find(i=>i.id===id); if(!inv) return;
+        window.location.href='sms:'+inv.patientPhone+'?body='+encodeURIComponent(patientMsg(inv));
+    }
+    function waPatient(id){
+        const inv=invoices.find(i=>i.id===id); if(!inv) return;
+        window.open('https://wa.me/'+normalizePhone(inv.patientPhone)+'?text='+encodeURIComponent(patientMsg(inv)),'_blank');
+    }
+
+    /* ---------- Barcode / QR / Print (iframe — reliable) ---------- */
+    function barcodeSVG(value,opts){
+        opts=opts||{};
+        const holder=document.createElement('div');
+        holder.style.cssText='position:fixed;left:-9999px;top:0;';
+        const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+        holder.appendChild(svg); document.body.appendChild(holder);
+        try{
+            JsBarcode(svg,String(value),Object.assign({format:'CODE128',width:1.5,height:34,fontSize:11,displayValue:true,margin:0},opts));
+            const out=svg.outerHTML; holder.remove(); return out;
+        }catch(e){ holder.remove(); return '<div style="font-family:monospace;font-size:10px">'+esc(value)+'</div>'; }
+    }
+    function qrIMG(text,size){
+        try{
+            const div=document.createElement('div');
+            new QRCode(div,{text:String(text),width:size||80,height:size||80,correctLevel:QRCode.CorrectLevel.L});
+            const c=div.querySelector('canvas');
+            return c?c.toDataURL('image/png'):'';
+        }catch(e){ return ''; }
+    }
+    function printHTML(inner,pageCSS){
+        const f=document.createElement('iframe');
+        f.style.cssText='position:fixed;right:0;bottom:0;width:1px;height:1px;opacity:0;border:0;';
+        document.body.appendChild(f);
+        let doneFlag=false;
+        const cleanup=()=>{ if(doneFlag) return; doneFlag=true; setTimeout(()=>{ try{f.remove();}catch(e){} },300); };
+        try{
+            const d=f.contentDocument||f.contentWindow.document;
+            d.open();
+            d.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Print</title><style>'+pageCSS+'</style></head><body>'+inner+'</body></html>');
+            d.close();
+            f.contentWindow.addEventListener('afterprint',cleanup,{once:true});
+        }catch(e){ toast('Print error','error'); cleanup(); return; }
+        setTimeout(()=>{ try{ f.contentWindow.focus(); f.contentWindow.print(); }catch(e){ toast('Print failed!','error'); } cleanup(); },300);
+        setTimeout(cleanup,60000);
+    }
+    const CSS_A4='@page{size:A4;margin:12mm} body{margin:0;font-family:Inter,"Hind Siliguri",sans-serif;color:#0f172a;font-size:12px} table{border-collapse:collapse}';
+    const CSS_THERMAL='@page{size:80mm auto;margin:2mm} body{margin:0;font-family:"Hind Siliguri",Inter,sans-serif;font-size:11px;color:#000}';
+    const CSS_STICKER='@page{size:50mm 30mm;margin:1mm} body{margin:0;font-family:Inter,sans-serif;color:#000}';
+
+    function printInvoiceById(id,mode){
+        const inv=invoices.find(i=>i.id===id); if(!inv){ toast('Invoice not found!','error'); return; }
+        if(mode==='A4') printHTML(buildA4(inv),CSS_A4);
+        else if(mode==='THERMAL') printHTML(buildThermal(inv),CSS_THERMAL);
+        else if(mode==='STICKER') printHTML(buildSticker(inv),CSS_STICKER);
+    }
+    function buildA4(inv){
+        const barcode=barcodeSVG(inv.patientId,{width:1.4,height:36,fontSize:11});
+        const pays=(inv.payments||[]).map(p=>'<div style="display:flex;justify-content:space-between;font-size:11px;"><span>'+fmtDT(p.at)+' • '+esc(p.method||'')+'</span><span>৳ '+fmt(p.amount)+'</span></div>').join('');
+        return '<div style="max-width:800px;margin:0 auto;">'
+        +'<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #16a34a;padding-bottom:12px;">'
+            +'<div style="display:flex;gap:12px;align-items:center;">'
+                +(settings.logo?'<img src="'+settings.logo+'" style="height:56px;object-fit:contain;">':'')
+                +'<div><div style="font-size:22px;font-weight:900;">'+esc(settings.nameEn)+'</div>'
+                +(settings.nameBn?'<div style="font-size:14px;">'+esc(settings.nameBn)+'</div>':'')
+                +'<div style="font-size:11px;color:#334155;">'+esc(settings.address)+'</div>'
+                +'<div style="font-size:11px;color:#334155;">Phone: '+esc(settings.phone)+(settings.bin?' • BIN: '+esc(settings.bin):'')+'</div></div>'
+            +'</div>'
+            +'<div style="text-align:right;"><div style="font-size:18px;font-weight:900;color:#16a34a;">MONEY RECEIPT</div>'
+            +'<div style="font-size:11px;">Invoice: <b>'+esc(inv.id)+'</b></div>'
+            +'<div style="font-size:11px;">Date: '+fmtDT(inv.date)+'</div></div>'
+        +'</div>'
+        +'<div style="display:flex;justify-content:space-between;gap:16px;margin:14px 0;">'
+            +'<div style="border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;flex:1;">'
+                +'<div style="font-weight:800;font-size:10px;color:#64748b;letter-spacing:1px;margin-bottom:4px;">PATIENT INFORMATION</div>'
+                +'<div><b>'+esc(inv.patientName)+'</b> ('+esc(inv.patientGender||'-')+', '+esc(inv.patientAge||'-')+')</div>'
+                +'<div>Patient ID: <b>'+esc(inv.patientId)+'</b> • Mobile: '+esc(inv.patientPhone)+'</div>'
+                +'<div>Referred by: '+esc(inv.refDoctor||'Self')+'</div>'
+                +(inv.deliveryDate?'<div>Report Delivery: '+new Date(inv.deliveryDate).toLocaleString('en-GB')+'</div>':'')
+            +'</div>'
+            +'<div style="min-width:180px;text-align:right;">'+barcode+'</div>'
+        +'</div>'
+        +'<table style="width:100%;font-size:12px;">'
+            +'<thead><tr style="background:#0f172a;color:#fff;">'
+            +'<th style="padding:8px;text-align:left;">#</th><th style="padding:8px;text-align:left;">Investigation</th><th style="padding:8px;text-align:left;">Category</th><th style="padding:8px;text-align:right;">Fee (BDT)</th></tr></thead>'
+            +'<tbody>'+(inv.items||[]).map((it,idx)=>'<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px;">'+(idx+1)+'</td><td style="padding:8px;">'+esc(it.name)+'</td><td style="padding:8px;">'+esc(it.category)+'</td><td style="padding:8px;text-align:right;">'+fmt(it.price)+'</td></tr>').join('')+'</tbody>'
+        +'</table>'
+        +'<div style="display:flex;justify-content:flex-end;margin-top:12px;"><table style="min-width:300px;">'
+            +'<tr><td style="padding:4px 8px;">Subtotal</td><td style="padding:4px 8px;text-align:right;font-weight:700;">৳ '+fmt(inv.subtotal)+'</td></tr>'
+            +'<tr><td style="padding:4px 8px;">Discount</td><td style="padding:4px 8px;text-align:right;">- ৳ '+fmt(inv.discount)+'</td></tr>'
+            +'<tr><td style="padding:4px 8px;">VAT/Tax ('+(inv.taxPercent||0)+'%)</td><td style="padding:4px 8px;text-align:right;">+ ৳ '+fmt(inv.taxAmount)+'</td></tr>'
+            +'<tr style="border-top:2px solid #0f172a;"><td style="padding:6px 8px;font-weight:900;">GRAND TOTAL</td><td style="padding:6px 8px;text-align:right;font-weight:900;font-size:14px;">৳ '+fmt(inv.grandTotal)+'</td></tr>'
+            +'<tr><td style="padding:4px 8px;font-weight:700;">Total Paid</td><td style="padding:4px 8px;text-align:right;color:#16a34a;font-weight:700;">৳ '+fmt(inv.paid)+'</td></tr>'
+            +'<tr><td style="padding:4px 8px;font-weight:800;">Due</td><td style="padding:4px 8px;text-align:right;color:#e11d48;font-weight:800;">৳ '+fmt(inv.due)+'</td></tr>'
+        +'</table></div>'
+        +(pays?'<div style="margin-top:10px;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;max-width:340px;margin-left:auto;"><div style="font-size:10px;font-weight:800;color:#64748b;margin-bottom:4px;">PAYMENT HISTORY</div>'+pays+'</div>':'')
+        +'<div style="display:flex;justify-content:space-between;margin-top:60px;font-size:11px;">'
+            +'<div style="border-top:1px solid #0f172a;padding-top:4px;width:180px;text-align:center;">Patient Signature</div>'
+            +'<div style="border-top:1px solid #0f172a;padding-top:4px;width:180px;text-align:center;">Authorized Signature</div>'
+        +'</div>'
+        +'<div style="text-align:center;margin-top:16px;font-size:10px;color:#64748b;border-top:1px dashed #cbd5e1;padding-top:8px;">'+esc(settings.footerNote||'Thank you!')+'</div>'
+        +'</div>';
+    }
+    function buildThermal(inv){
+        return '<div style="width:72mm;margin:0 auto;">'
+        +'<div style="text-align:center;">'
+            +(settings.logo?'<img src="'+settings.logo+'" style="height:36px;margin:0 auto;object-fit:contain;">':'')
+            +'<div style="font-weight:900;font-size:14px;">'+esc(settings.nameEn)+'</div>'
+            +'<div>'+esc(settings.address)+'</div><div>Ph: '+esc(settings.phone)+'</div>'
+            +'<div style="border-top:1px dashed #000;margin:6px 0;"></div>'
+            +'<div style="font-weight:800;">MONEY RECEIPT</div>'
+        +'</div>'
+        +'<div style="border-top:1px dashed #000;border-bottom:1px dashed #000;padding:4px 0;margin:4px 0;">'
+            +'<div>Invoice: <b>'+esc(inv.id)+'</b></div>'
+            +'<div>Date: '+fmtDT(inv.date)+'</div>'
+            +'<div>Patient: <b>'+esc(inv.patientName)+'</b> ('+esc(inv.patientAge||'-')+'/'+esc(inv.patientGender||'-')+')</div>'
+            +'<div>ID: '+esc(inv.patientId)+' • Mob: '+esc(inv.patientPhone)+'</div>'
+            +'<div>Ref: '+esc(inv.refDoctor||'Self')+'</div>'
+        +'</div>'
+        +'<table style="width:100%;">'+(inv.items||[]).map((it,i)=>'<tr><td style="padding:2px 0;">'+(i+1)+'. '+esc(it.name)+'</td><td style="text-align:right;white-space:nowrap;">'+fmt(it.price)+'</td></tr>').join('')+'</table>'
+        +'<div style="border-top:1px dashed #000;margin:4px 0;"></div>'
+        +'<table style="width:100%;">'
+            +'<tr><td>Subtotal</td><td style="text-align:right;">'+fmt(inv.subtotal)+'</td></tr>'
+            +(Number(inv.discount)>0?'<tr><td>Discount</td><td style="text-align:right;">-'+fmt(inv.discount)+'</td></tr>':'')
+            +(Number(inv.taxAmount)>0?'<tr><td>VAT '+(inv.taxPercent||0)+'%</td><td style="text-align:right;">'+fmt(inv.taxAmount)+'</td></tr>':'')
+            +'<tr style="font-weight:900;font-size:13px;"><td>TOTAL</td><td style="text-align:right;">৳ '+fmt(inv.grandTotal)+'</td></tr>'
+            +'<tr><td>Paid ('+esc(inv.paymentMethod||'')+')</td><td style="text-align:right;">'+fmt(inv.paid)+'</td></tr>'
+            +'<tr style="font-weight:800;"><td>Due</td><td style="text-align:right;">'+fmt(inv.due)+'</td></tr>'
+        +'</table>'
+        +'<div style="border-top:1px dashed #000;margin:6px 0;"></div>'
+        +'<div style="text-align:center;font-size:10px;">'
+            +barcodeSVG(inv.patientId,{width:1,height:26,fontSize:9})
+            +'<div>Report delivery: '+(inv.deliveryDate?new Date(inv.deliveryDate).toLocaleString('en-GB'):'--')+'</div>'
+            +'<div>ধন্যবাদ! আবার আসবেন</div>'
+            +'<div style="font-size:9px;">Powered by MedEasy BD</div>'
+        +'</div></div>';
+    }
+    function buildSticker(inv){
+        const qr=qrIMG(inv.id+'|'+inv.patientId+'|'+inv.patientName,60);
+        return '<div style="width:48mm;height:28mm;overflow:hidden;border:1px solid #000;padding:1mm;box-sizing:border-box;">'
+            +'<div style="display:flex;justify-content:space-between;font-size:8px;font-weight:800;"><span>'+esc((settings.nameEn||'').slice(0,24))+'</span><span>'+new Date(inv.date).toLocaleDateString('en-GB')+'</span></div>'
+            +'<div style="font-size:9px;font-weight:700;white-space:nowrap;overflow:hidden;">'+esc(inv.patientName)+' • '+esc(inv.patientAge||'-')+'/'+esc((inv.patientGender||'').charAt(0))+'</div>'
+            +'<div style="font-size:7.5px;white-space:nowrap;overflow:hidden;">'+esc((inv.items||[]).map(i=>i.name).join(', ')).slice(0,64)+'</div>'
+            +barcodeSVG(inv.patientId,{width:1,height:20,fontSize:8})
+            +'<div style="display:flex;justify-content:space-between;align-items:center;">'
+                +(qr?'<img src="'+qr+'" style="width:8mm;height:8mm;">':'<div></div>')
+                +'<div style="font-size:7px;text-align:right;font-weight:700;">'+esc(inv.id)+'</div>'
+            +'</div></div>';
+    }
+
+    /* ---------- Patient Records Table ---------- */
+    function renderPatientRecordsTable(){
+        const q=($('records-search-input').value||'').toLowerCase();
+        const f=$('records-filter-status').value;
+        const list=invoices.filter(i=>{
+            const match=!q||[i.patientId,i.patientName,i.patientPhone,i.id].some(v=>String(v||'').toLowerCase().includes(q));
+            const st=f==='ALL'||(f==='PAID'&&Number(i.due)<=0.001)||(f==='DUE'&&Number(i.due)>0.001);
+            return match&&st;
+        });
+        const tb=$('records-table-body');
+        if(!list.length){ tb.innerHTML='<tr><td colspan="10" class="p-8 text-center text-slate-400 italic"><i class="fa-solid fa-inbox text-2xl block mb-1"></i>No records found matching your search.</td></tr>'; return; }
+        const b="px-1.5 py-1 rounded-lg text-[10px] font-bold transition";
+        tb.innerHTML=list.map(i=>{
+            const pay=Number(i.due)<=0.001
+                ?'<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-black">PAID</span>'
+                :'<span class="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-black">DUE ৳'+fmt(i.due)+'</span>';
+            return '<tr class="hover:bg-slate-50">'
+            +'<td class="p-3.5 pl-5"><div class="font-mono font-bold text-slate-800">'+esc(i.id)+'</div><div class="text-[10px] text-slate-400">'+fmtDT(i.date)+'</div></td>'
+            +'<td class="p-3.5"><div class="font-bold text-slate-800">'+esc(i.patientName)+'</div><div class="font-mono text-[10px] text-medical-600">'+esc(i.patientId)+'</div></td>'
+            +'<td class="p-3.5 font-mono">'+esc(i.patientPhone)+'</td>'
+            +'<td class="p-3.5 text-[11px]">'+esc(i.refDoctor)+'</td>'
+            +'<td class="p-3.5 text-right font-bold">৳'+fmt(i.grandTotal)+'</td>'
+            +'<td class="p-3.5 text-right text-emerald-600 font-bold">৳'+fmt(i.paid)+'</td>'
+            +'<td class="p-3.5 text-right text-rose-600 font-bold">৳'+fmt(i.due)+'</td>'
+            +'<td class="p-3.5 text-center">'+pay+'</td>'
+            +'<td class="p-3.5 text-center">'+deliveryBadge(i.deliveryStatus)+'</td>'
+            +'<td class="p-3.5"><div class="flex items-center justify-center gap-1 flex-wrap">'
+                +'<button onclick="printInvoiceById(\''+i.id+'\',\'A4\')" title="Print A4" class="'+b+' bg-medical-100 text-medical-700 hover:bg-medical-200"><i class="fa-solid fa-print"></i></button>'
+                +'<button onclick="printInvoiceById(\''+i.id+'\',\'THERMAL\')" title="Print Thermal" class="'+b+' bg-slate-100 text-slate-700 hover:bg-slate-200"><i class="fa-solid fa-receipt"></i></button>'
+                +'<button onclick="printInvoiceById(\''+i.id+'\',\'STICKER\')" title="Print Tube Label" class="'+b+' bg-amber-100 text-amber-700 hover:bg-amber-200"><i class="fa-solid fa-barcode"></i></button>'
+                +(Number(i.due)>0.001?'<button onclick="openDueModal(\''+i.id+'\')" title="Collect Due" class="'+b+' bg-emerald-100 text-emerald-700 hover:bg-emerald-200"><i class="fa-solid fa-hand-holding-dollar"></i></button>':'')
+                +'<button onclick="cycleDelivery(\''+i.id+'\')" title="Change Report Status" class="'+b+' bg-violet-100 text-violet-700 hover:bg-violet-200"><i class="fa-solid fa-flask"></i></button>'
+                +'<button onclick="smsPatient(\''+i.id+'\')" title="Send SMS" class="'+b+' bg-sky-100 text-sky-700 hover:bg-sky-200"><i class="fa-solid fa-comment-sms"></i></button>'
+                +'<button onclick="waPatient(\''+i.id+'\')" title="WhatsApp" class="'+b+' bg-green-100 text-green-700 hover:bg-green-200"><i class="fa-brands fa-whatsapp"></i></button>'
+                +'<button onclick="editInvoice(\''+i.id+'\')" title="Edit" class="'+b+' bg-indigo-100 text-indigo-700 hover:bg-indigo-200"><i class="fa-solid fa-pen"></i></button>'
+                +'<button onclick="askDeleteInvoice(\''+i.id+'\')" title="Delete (Admin)" class="'+b+' bg-rose-100 text-rose-700 hover:bg-rose-200"><i class="fa-solid fa-trash-can"></i></button>'
+            +'</div></td></tr>';
+        }).join('');
+    }
+
+    /* ---------- Dashboard ---------- */
+    function renderDashboard(){
+        updateTenantUI();
+        const today=todayStr();
+        const todays=invoices.filter(i=>localDateStr(i.date)===today);
+        $('dash-stat-count').textContent=todays.length;
+        $('dash-stat-income').textContent=fmt(todays.reduce((s,i)=>s+Number(i.paid||0),0));
+        $('dash-stat-due').textContent=fmt(invoices.reduce((s,i)=>s+Number(i.due||0),0));
+        $('dash-stat-patients').textContent=new Set(todays.map(i=>i.patientId)).size;
+        renderRecentTable(todays);
+        renderCharts();
+    }
+    function renderRecentTable(todays){
+        const tb=$('dash-recent-table-body');
+        if(!todays.length){ tb.innerHTML='<tr><td colspan="6" class="p-8 text-center text-slate-400 italic"><i class="fa-solid fa-inbox text-2xl block mb-1"></i>আজ কোনো বিল হয়নি। নতুন বিল তৈরি করুন!</td></tr>'; return; }
+        tb.innerHTML=todays.slice(0,6).map(i=>'<tr class="hover:bg-slate-50">'
+            +'<td class="p-3.5 pl-5"><div class="font-mono font-bold">'+esc(i.id)+'</div><div class="text-[10px] text-slate-400 font-mono">'+esc(i.patientId)+'</div></td>'
+            +'<td class="p-3.5"><div class="font-bold">'+esc(i.patientName)+'</div><div class="text-[10px] text-slate-400">'+esc(i.patientPhone)+'</div></td>'
+            +'<td class="p-3.5 text-[11px]">'+esc(i.refDoctor)+'</td>'
+            +'<td class="p-3.5 font-bold">৳'+fmt(i.grandTotal)+'</td>'
+            +'<td class="p-3.5"><span class="text-emerald-600 font-bold">৳'+fmt(i.paid)+'</span> / <span class="text-rose-600 font-bold">৳'+fmt(i.due)+'</span></td>'
+            +'<td class="p-3.5 text-center"><button onclick="printInvoiceById(\''+i.id+'\',\'A4\')" class="px-2 py-1 bg-medical-100 text-medical-700 rounded-lg text-[10px] font-bold hover:bg-medical-200"><i class="fa-solid fa-print"></i> A4</button> '
+            +'<button onclick="printInvoiceById(\''+i.id+'\',\'THERMAL\')" class="px-2 py-1 bg-slate-100 text-slate-700 rounded-lg text-[10px] font-bold hover:bg-slate-200"><i class="fa-solid fa-receipt"></i></button></td></tr>').join('');
+    }
+    function renderCharts(){
+        if(typeof Chart==='undefined') return;
+        const labels=[],paidArr=[],dueArr=[];
+        for(let i=6;i>=0;i--){
+            const d=new Date(); d.setDate(d.getDate()-i);
+            const ds=d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
+            labels.push(d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'}));
+            const di=invoices.filter(x=>localDateStr(x.date)===ds);
+            paidArr.push(di.reduce((s,x)=>s+Number(x.paid||0),0));
+            dueArr.push(di.reduce((s,x)=>s+Number(x.due||0),0));
+        }
+        if(revChart) revChart.destroy();
+        revChart=new Chart($('dashboard-chart-revenue'),{type:'bar',
+            data:{labels,datasets:[
+                {label:'Paid (৳)',data:paidArr,backgroundColor:'#16a34a',borderRadius:6},
+                {label:'Due (৳)',data:dueArr,backgroundColor:'#f43f5e',borderRadius:6}]},
+            options:{responsive:true,maintainAspectRatio:false,
+                scales:{y:{beginAtZero:true}},plugins:{legend:{position:'bottom',labels:{boxWidth:12,font:{size:11}}}}}});
+        const catCount={};
+        invoices.forEach(i=>(i.items||[]).forEach(it=>{ catCount[it.category]=(catCount[it.category]||0)+1; }));
+        const entries=Object.entries(catCount).sort((a,b)=>b[1]-a[1]).slice(0,6);
+        if(catChart) catChart.destroy();
+        catChart=new Chart($('dashboard-chart-categories'),{type:'doughnut',
+            data:{labels:entries.map(e=>e[0]),datasets:[{data:entries.map(e=>e[1]),
+                backgroundColor:['#0ea5e9','#16a34a','#f59e0b','#8b5cf6','#ef4444','#14b8a6']}]},
+            options:{responsive:true,maintainAspectRatio:false,
+                plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}}}}});
+    }
+
+    /* ---------- Reports ---------- */
+    function setRange(kind){
+        const t=new Date();
+        if(kind==='today'){ $('rep-from').value=todayStr(); $('rep-to').value=todayStr(); }
+        else if(kind==='7d'){ const f=new Date(); f.setDate(f.getDate()-6); $('rep-from').value=f.getFullYear()+'-'+pad2(f.getMonth()+1)+'-'+pad2(f.getDate()); $('rep-to').value=todayStr(); }
+        else { $('rep-from').value=t.getFullYear()+'-'+pad2(t.getMonth()+1)+'-01'; $('rep-to').value=todayStr(); }
+        renderReports();
+    }
+    function computeReport(from,to){
+        const invs=invoices.filter(i=>inRange(i.date,from,to));
+        const gross=invs.reduce((s,i)=>s+Number(i.subtotal||0),0);
+        const disc=invs.reduce((s,i)=>s+Number(i.discount||0),0);
+        const vat=invs.reduce((s,i)=>s+Number(i.taxAmount||0),0);
+        let coll=0; const byMethod={};
+        invoices.forEach(i=>(i.payments||[]).forEach(p=>{
+            if(inRange(p.at,from,to)){ const a=Number(p.amount||0); coll+=a; const m=p.method||'Cash'; byMethod[m]=(byMethod[m]||0)+a; }
+        }));
+        const exp=expenses.filter(e=>inRange(e.date,from,to)).reduce((s,e)=>s+Number(e.amount||0),0);
+        const testMap={};
+        invs.forEach(i=>(i.items||[]).forEach(it=>{
+            const k=it.name; testMap[k]=testMap[k]||{count:0,amount:0};
+            testMap[k].count++; testMap[k].amount+=Number(it.price||0);
+        }));
+        const dues=invoices.filter(i=>Number(i.due||0)>0.001);
+        return {invs,gross,disc,vat,coll,byMethod,exp,testMap,dues};
+    }
+    function renderReports(){
+        const from=$('rep-from').value||todayStr(), to=$('rep-to').value||todayStr();
+        const r=computeReport(from,to);
+        $('rep-bills').textContent=r.invs.length;
+        $('rep-gross').textContent=fmt(r.gross-r.disc+r.vat);
+        $('rep-coll').textContent=fmt(r.coll);
+        $('rep-exp').textContent=fmt(r.exp);
+        $('rep-net').textContent=fmt(r.coll-r.exp);
+        const mk=Object.entries(r.byMethod).sort((a,b)=>b[1]-a[1]);
+        $('rep-method-body').innerHTML=mk.length?mk.map(e=>'<tr><td class="p-2.5 font-bold text-slate-700">'+esc(e[0])+'</td><td class="p-2.5 text-right font-black text-emerald-600">৳ '+fmt(e[1])+'</td></tr>').join(''):'<tr><td class="p-4 text-center text-slate-400 italic">No collection in this range.</td></tr>';
+        const tt=Object.entries(r.testMap).sort((a,b)=>b[1].amount-a[1].amount).slice(0,20);
+        $('rep-tests-body').innerHTML=tt.length?tt.map(e=>'<tr><td class="p-2.5">'+esc(e[0])+'</td><td class="p-2.5 text-center font-bold">'+e[1].count+'</td><td class="p-2.5 text-right font-bold">৳ '+fmt(e[1].amount)+'</td></tr>').join(''):'<tr><td colspan="3" class="p-4 text-center text-slate-400 italic">No tests in this range.</td></tr>';
+        $('rep-due-body').innerHTML=r.dues.length?r.dues.map(i=>'<tr class="hover:bg-slate-50"><td class="p-3 font-mono font-bold">'+esc(i.id)+'</td><td class="p-3">'+esc(i.patientName)+'</td><td class="p-3 font-mono">'+esc(i.patientPhone)+'</td><td class="p-3 text-right font-black text-rose-600">৳ '+fmt(i.due)+'</td><td class="p-3 text-center"><button onclick="openDueModal(\''+i.id+'\')" class="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-[10px] font-bold hover:bg-emerald-200">Collect</button></td></tr>').join(''):'<tr><td colspan="5" class="p-4 text-center text-slate-400 italic">🎉 No outstanding due!</td></tr>';
+    }
+    function exportCSV(){
+        const from=$('rep-from').value||todayStr(), to=$('rep-to').value||todayStr();
+        const rows=[['Date','Invoice','PatientID','Name','Phone','Doctor','Subtotal','Discount','VAT','Total','Paid','Due','Status','Method']];
+        computeReport(from,to).invs.forEach(i=>rows.push([localDateStr(i.date),i.id,i.patientId,i.patientName,i.patientPhone,i.refDoctor,i.subtotal,i.discount,i.taxAmount,i.grandTotal,i.paid,i.due,i.status,i.paymentMethod].map(v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"').join(',')));
+        downloadFile('medeasy-sales-'+from+'_to_'+to+'.csv','\ufeff'+rows.join('\n'),'text/csv');
+        toast('CSV exported','info');
+    }
+    function printDayBook(){
+        const from=$('rep-from').value||todayStr(), to=$('rep-to').value||todayStr();
+        const r=computeReport(from,to);
+        const net=r.coll-r.exp;
+        const rows=(obj)=>Object.entries(obj).map(e=>'<tr><td style="padding:4px 10px;border-bottom:1px solid #e2e8f0;">'+esc(e[0])+'</td><td style="padding:4px 10px;text-align:right;border-bottom:1px solid #e2e8f0;font-weight:700;">৳ '+fmt(e[1])+'</td></tr>').join('');
+        const tests=Object.entries(r.testMap).sort((a,b)=>b[1].amount-a[1].amount).slice(0,15)
+            .map(e=>'<tr><td style="padding:4px 10px;border-bottom:1px solid #e2e8f0;">'+esc(e[0])+'</td><td style="padding:4px 10px;text-align:center;border-bottom:1px solid #e2e8f0;">'+e[1].count+'</td><td style="padding:4px 10px;text-align:right;border-bottom:1px solid #e2e8f0;">৳ '+fmt(e[1].amount)+'</td></tr>').join('');
+        const html='<div style="max-width:760px;margin:0 auto;">'
+            +'<div style="text-align:center;border-bottom:3px double #0f172a;padding-bottom:10px;margin-bottom:14px;">'
+            +'<div style="font-size:20px;font-weight:900;">'+esc(settings.nameEn)+'</div>'
+            +'<div style="font-size:11px;">'+esc(settings.address)+' • '+esc(settings.phone)+'</div>'
+            +'<div style="font-size:15px;font-weight:800;margin-top:6px;">DAY BOOK / SALES SUMMARY</div>'
+            +'<div style="font-size:11px;">Period: '+from+' to '+to+'</div></div>'
+            +'<table style="width:100%;font-size:12px;margin-bottom:14px;">'
+            +'<tr><td style="padding:4px 10px;">Total Bills</td><td style="padding:4px 10px;text-align:right;font-weight:700;">'+r.invs.length+'</td></tr>'
+            +'<tr><td style="padding:4px 10px;">Gross Sales</td><td style="padding:4px 10px;text-align:right;font-weight:700;">৳ '+fmt(r.gross)+'</td></tr>'
+            +'<tr><td style="padding:4px 10px;">Discount</td><td style="padding:4px 10px;text-align:right;">- ৳ '+fmt(r.disc)+'</td></tr>'
+            +'<tr><td style="padding:4px 10px;">VAT</td><td style="padding:4px 10px;text-align:right;">+ ৳ '+fmt(r.vat)+'</td></tr>'
+            +'<tr style="background:#f1f5f9;"><td style="padding:6px 10px;font-weight:900;">TOTAL COLLECTION</td><td style="padding:6px 10px;text-align:right;font-weight:900;">৳ '+fmt(r.coll)+'</td></tr>'
+            +'<tr><td style="padding:4px 10px;">Total Expenses</td><td style="padding:4px 10px;text-align:right;color:#e11d48;">- ৳ '+fmt(r.exp)+'</td></tr>'
+            +'<tr style="background:#ecfdf5;"><td style="padding:6px 10px;font-weight:900;">NET CASH IN HAND</td><td style="padding:6px 10px;text-align:right;font-weight:900;">৳ '+fmt(net)+'</td></tr>'
+            +'</table>'
+            +'<div style="font-weight:800;font-size:12px;margin:8px 0 4px;">PAYMENT METHOD WISE</div>'
+            +'<table style="width:100%;font-size:12px;">'+rows(r.byMethod)+'</table>'
+            +'<div style="font-weight:800;font-size:12px;margin:12px 0 4px;">TOP TESTS SOLD</div>'
+            +'<table style="width:100%;font-size:12px;">'+tests+'</table>'
+            +'<div style="margin-top:12px;font-size:11px;font-weight:700;">Outstanding Due (All Time): ৳ '+fmt(r.dues.reduce((s,i)=>s+Number(i.due||0),0))+'</div>'
+            +'<div style="display:flex;justify-content:space-between;margin-top:50px;font-size:11px;">'
+            +'<div style="border-top:1px solid #0f172a;padding-top:4px;width:180px;text-align:center;">Prepared By</div>'
+            +'<div style="border-top:1px solid #0f172a;padding-top:4px;width:180px;text-align:center;">Authorized Signature</div></div>'
+            +'</div>';
+        printHTML(html,CSS_A4);
+    }
+
+    /* ---------- Expenses ---------- */
+    function renderExpenses(){
+        $('exp-cat').innerHTML=EXP_CATS.map(c=>'<option value="'+esc(c)+'">'+esc(c)+'</option>').join('');
+        const t=todayStr();
+        const month=t.slice(0,7);
+        $('exp-today').textContent=fmt(expenses.filter(e=>e.date===t).reduce((s,e)=>s+Number(e.amount||0),0));
+        $('exp-month').textContent=fmt(expenses.filter(e=>String(e.date||'').startsWith(month)).reduce((s,e)=>s+Number(e.amount||0),0));
+        $('exp-total').textContent=fmt(expenses.reduce((s,e)=>s+Number(e.amount||0),0));
+        const tb=$('exp-table-body');
+        tb.innerHTML=expenses.length?expenses.map(e=>'<tr class="hover:bg-slate-50">'
+            +'<td class="p-3 font-mono">'+esc(e.date)+'</td>'
+            +'<td class="p-3"><span class="text-[10px] bg-rose-50 text-rose-700 px-2 py-0.5 rounded-full font-bold">'+esc(e.cat)+'</span></td>'
+            +'<td class="p-3">'+esc(e.desc||'—')+'</td>'
+            +'<td class="p-3 text-right font-bold text-rose-600">৳ '+fmt(e.amount)+'</td>'
+            +'<td class="p-3 text-center"><button onclick="deleteExpense(\''+e.id+'\')" class="text-rose-500 hover:text-rose-700"><i class="fa-solid fa-trash-can"></i></button></td></tr>').join('')
+            :'<tr><td colspan="5" class="p-6 text-center text-slate-400 italic">No expenses recorded yet.</td></tr>';
+    }
+    function addExpense(e){
+        e.preventDefault();
+        const amt=Number($('exp-amount').value||0);
+        if(amt<=0){ toast('Enter valid amount','error'); return; }
+        expenses.unshift({id:uid('EX'),date:$('exp-date').value||todayStr(),cat:$('exp-cat').value,desc:$('exp-desc').value.trim(),amount:amt});
+        saveJSON(LS.exp(activeId),expenses);
+        e.target.reset(); $('exp-date').value=todayStr();
+        renderExpenses(); renderReports();
+        toast('Expense added: ৳'+fmt(amt));
+    }
+    function deleteExpense(id){
+        expenses=expenses.filter(x=>x.id!==id);
+        saveJSON(LS.exp(activeId),expenses);
+        renderExpenses(); renderReports();
+    }
+
+    /* ---------- Doctors ---------- */
+    function renderDoctorDatalist(){
+        $('doctor-suggestions').innerHTML=doctors.map(d=>'<option value="'+esc(d.name)+'">').join('')+'<option value="Self / Self Reference">';
+    }
+    function renderDoctors(){
+        const tb=$('doc-table-body');
+        tb.innerHTML=doctors.length?doctors.map(d=>{
+            const ref=invoices.filter(i=>i.refDoctor===d.name);
+            const rev=ref.reduce((s,i)=>s+Number(i.grandTotal||0),0);
+            const pay=rev*(Number(d.commission)||0)/100;
+            return '<tr class="hover:bg-slate-50">'
+            +'<td class="p-3 pl-5 font-bold text-slate-800">'+esc(d.name)+'</td>'
+            +'<td class="p-3">'+esc(d.spec||'—')+'</td>'
+            +'<td class="p-3 font-mono">'+esc(d.phone||'—')+'</td>'
+            +'<td class="p-3 text-center"><input type="number" min="0" max="100" value="'+(d.commission||0)+'" onchange="updateDoctorCommission(\''+d.id+'\',this.value)" class="w-16 text-center border border-slate-200 rounded px-1 py-1 text-xs"></td>'
+            +'<td class="p-3 text-center font-bold">'+ref.length+'</td>'
+            +'<td class="p-3 text-right font-bold">৳'+fmt(rev)+'</td>'
+            +'<td class="p-3 text-right font-black text-sky-700">৳'+fmt(pay)+'</td>'
+            +'<td class="p-3 text-center"><button onclick="deleteDoctor(\''+d.id+'\')" class="text-rose-500 hover:text-rose-700"><i class="fa-solid fa-trash-can"></i></button></td></tr>';
+        }).join(''):'<tr><td colspan="8" class="p-6 text-center text-slate-400 italic">No referral doctors added yet.</td></tr>';
+    }
+    function addDoctor(e){
+        e.preventDefault();
+        const name=$('doc-name').value.trim();
+        if(!name){ toast('Doctor name required','error'); return; }
+        doctors.push({id:uid('D'),name,spec:$('doc-spec').value.trim(),phone:$('doc-phone').value.trim(),commission:Number($('doc-comm').value||0)});
+        saveJSON(LS.doc(activeId),doctors);
+        e.target.reset(); $('doc-comm').value=10;
+        renderDoctors(); renderDoctorDatalist();
+        toast('Doctor added: '+name);
+    }
+    function updateDoctorCommission(id,v){
+        const d=doctors.find(x=>x.id===id);
+        if(d){ d.commission=Number(v)||0; saveJSON(LS.doc(activeId),doctors); renderDoctors(); toast('Commission updated: '+d.name); }
+    }
+    function deleteDoctor(id){
+        doctors=doctors.filter(x=>x.id!==id);
+        saveJSON(LS.doc(activeId),doctors);
+        renderDoctors(); renderDoctorDatalist();
+        toast('Doctor removed','info');
+    }
+
+    /* ---------- Settings & Test Directory ---------- */
+    function renderSettingsForm(){
+        $('set-hospital-name').value=settings.nameEn||'';
+        $('set-hospital-bn').value=settings.nameBn||'';
+        $('set-hospital-phone').value=settings.phone||'';
+        $('set-hospital-bin').value=settings.bin||'';
+        $('set-hospital-address').value=settings.address||'';
+        $('set-footer-note').value=settings.footerNote||'';
+        $('set-delivery-hours').value=settings.deliveryHours||24;
+        if(settings.logo){ $('logo-preview-img').src=settings.logo; $('logo-preview-img').classList.remove('hidden'); $('logo-placeholder-icon').classList.add('hidden'); }
+    }
+    function handleLogoUpload(input){
+        const f=input.files[0]; if(!f) return;
+        const r=new FileReader();
+        r.onload=e=>{
+            settings.logo=e.target.result;
+            $('logo-preview-img').src=settings.logo;
+            $('logo-preview-img').classList.remove('hidden');
+            $('logo-placeholder-icon').classList.add('hidden');
+            toast('Logo ready — "Save Settings" চাপুন','info');
+        };
+        r.readAsDataURL(f);
+    }
+    function saveHospitalSettings(e){
+        e.preventDefault();
+        settings.nameEn=$('set-hospital-name').value.trim();
+        settings.nameBn=$('set-hospital-bn').value.trim();
+        settings.phone=$('set-hospital-phone').value.trim();
+        settings.bin=$('set-hospital-bin').value.trim();
+        settings.address=$('set-hospital-address').value.trim();
+        settings.footerNote=$('set-footer-note').value.trim();
+        settings.deliveryHours=Number($('set-delivery-hours').value)||24;
+        saveJSON(LS.set(activeId),settings);
+        const t=tenants.find(x=>x.id===activeId);
+        if(t&&settings.nameEn){ t.name=settings.nameEn; saveJSON(LS.tenants,tenants); }
+        updateTenantUI();
+        toast('Hospital settings saved');
+    }
+    function persistTests(){ saveJSON(LS.tests(activeId),tests); }
+    function renderTestDirectory(){
+        const tb=$('test-directory-body');
+        tb.innerHTML=tests.map(t=>'<tr class="hover:bg-slate-50">'
+            +'<td class="p-2.5 font-semibold text-slate-700">'+esc(t.name)+'</td>'
+            +'<td class="p-2.5"><span class="text-[10px] bg-slate-100 px-2 py-0.5 rounded-full font-bold text-slate-600">'+esc(t.category)+'</span></td>'
+            +'<td class="p-2.5 text-right"><input type="number" min="0" value="'+t.price+'" onchange="updateTestPrice(\''+t.id+'\',this.value)" class="w-20 text-right border border-slate-200 rounded px-1.5 py-1 text-xs"></td>'
+            +'<td class="p-2.5 text-center"><button onclick="deleteTest(\''+t.id+'\')" class="text-rose-500 hover:text-rose-700"><i class="fa-solid fa-trash-can"></i></button></td></tr>').join('');
+    }
+    function updateTestPrice(id,v){
+        const t=tests.find(x=>x.id===id);
+        if(t){ t.price=Number(v)||0; persistTests(); renderTestSelector(); toast('Price updated: '+t.name); }
+    }
+    function deleteTest(id){
+        tests=tests.filter(x=>x.id!==id);
+        persistTests(); renderTestSelector(); renderTestDirectory();
+        toast('Test removed from directory','info');
+    }
+    function addDirectoryTest(e){
+        e.preventDefault();
+        const name=$('dir-test-name').value.trim(),cat=$('dir-test-cat').value,price=Number($('dir-test-price').value||0);
+        if(!name||price<=0){ toast('Enter valid name & price','error'); return; }
+        tests.push({id:uid('T'),name,category:cat,price});
+        persistTests(); renderTestSelector(); renderTestDirectory();
+        $('dir-test-name').value=''; $('dir-test-price').value='';
+        toast('Test added to directory');
+    }
+
+    /* ---------- Custom Test ---------- */
+    function showCustomTestModal(){ $('custom-test-modal').style.display='flex'; setTimeout(()=>$('ct-name').focus(),80); }
+    function closeCustomTestModal(){ closeModal('custom-test-modal'); $('ct-name').value=''; $('ct-price').value=''; $('ct-category').value='Custom'; }
+    function saveCustomTest(e){
+        e.preventDefault();
+        const name=$('ct-name').value.trim(),cat=$('ct-category').value.trim()||'Custom',price=Number($('ct-price').value||0);
+        if(!name||price<=0){ toast('Enter valid test name & price','error'); return; }
+        selectedTests.push({id:uid('CT'),name,category:cat,price});
+        if($('ct-save-directory').checked){
+            tests.push({id:uid('T'),name,category:cat,price});
+            persistTests(); renderTestSelector(); renderTestDirectory();
+        }
+        renderSelectedTests(); calculateBillingTotals(); closeCustomTestModal();
+        toast('Custom test added to bill');
+    }
+
+    /* ---------- Scanner ---------- */
+    function openBarcodeScannerModal(){
+        $('scanner-error').classList.add('hidden');
+        openModal('scanner-modal');
+        startScanner();
+    }
+    function closeScannerModal(){ stopScanner(); closeModal('scanner-modal'); }
+    async function startScanner(){
+        if(typeof Html5Qrcode==='undefined'){ $('scanner-error').textContent='Scanner library not loaded.'; $('scanner-error').classList.remove('hidden'); return; }
+        try{
+            scanner=new Html5Qrcode('scanner-reader');
+            await scanner.start({facingMode:'environment'},{fps:10,qrbox:{width:230,height:150}},
+                (txt)=>{
+                    $('records-search-input').value=txt;
+                    renderPatientRecordsTable();
+                    switchTab('patients');
+                    toast('Scanned: '+txt,'info');
+                    closeScannerModal();
+                },()=>{});
+        }catch(err){
+            $('scanner-error').textContent='Camera permission denied or camera not available.';
+            $('scanner-error').classList.remove('hidden');
+        }
+    }
+    function stopScanner(){
+        if(scanner){ try{ scanner.stop().then(()=>{try{scanner.clear();}catch(e){}}).catch(()=>{}); }catch(e){} scanner=null; }
+    }
+
+    /* ---------- Switch Tenant ---------- */
+    function openSwitchTenantModal(){
+        $('switch-tenant-list').innerHTML=tenants.map(t=>{
+            const act=isTenantActive(t);
+            const lbl=act?'ACTIVE':(t.status==='ACTIVE'?'EXPIRED':'SUSPENDED');
+            return '<button onclick="switchToTenant(\''+t.id+'\')" class="w-full text-left p-3 rounded-xl border mb-2 transition '+(t.id===activeId?'border-medical-500 bg-medical-50':'border-slate-200 hover:bg-slate-50')+' flex items-center justify-between gap-2">'
+            +'<div><div class="font-bold text-sm text-slate-800">'+esc(t.name)+'</div>'
+            +'<div class="text-[10px] text-slate-400 font-mono">'+t.id+' • Rent ৳'+Number(t.rent||0).toLocaleString()+'/mo</div></div>'
+            +'<span class="text-[10px] font-black px-2 py-0.5 rounded-full '+(act?'bg-emerald-100 text-emerald-700':'bg-rose-100 text-rose-700')+'">'+lbl+'</span></button>';
+        }).join('');
+        openModal('switch-tenant-modal');
+    }
+    function switchToTenant(id){
+        loadTenantData(id);
+        renderAll();
+        checkTenantLock();
+        closeModal('switch-tenant-modal');
+        switchTab('dashboard');
+        toast('Switched tenant: '+(tenants.find(t=>t.id===id)||{}).name,'info');
+    }
+
+    /* ---------- SaaS Admin ---------- */
+    function renderSaaSAdmin(){
+        const active=tenants.filter(isTenantActive).length;
+        $('saas-stat-tenants').textContent=tenants.length;
+        $('saas-stat-active').textContent=active;
+        $('saas-stat-locked').textContent=tenants.length-active;
+        $('saas-stat-mrr').textContent=fmt(tenants.filter(t=>t.status==='ACTIVE').reduce((s,t)=>s+Number(t.rent||0),0));
+        const b="px-2 py-1 rounded-lg text-[10px] font-bold transition";
+        $('saas-tenant-table').innerHTML=tenants.map(t=>{
+            const act=isTenantActive(t);
+            const until=new Date(t.subscribedUntil).toLocaleDateString('en-GB');
+            return '<tr class="hover:bg-slate-50">'
+            +'<td class="p-3 pl-5"><div class="font-bold text-slate-800">'+esc(t.name)+'</div><div class="text-[10px] text-slate-400">'+esc(t.branch||'')+'</div></td>'
+            +'<td class="p-3 font-mono">'+t.id+'</td>'
+            +'<td class="p-3 font-mono">'+esc(t.phone||'—')+'</td>'
+            +'<td class="p-3 text-right font-bold">৳'+fmt(t.rent)+'</td>'
+            +'<td class="p-3">'+until+'</td>'
+            +'<td class="p-3 text-center"><span class="text-[10px] font-black px-2 py-0.5 rounded-full '+(act?'bg-emerald-100 text-emerald-700':'bg-rose-100 text-rose-700')+'">'+(act?'ACTIVE':'LOCKED')+'</span></td>'
+            +'<td class="p-3"><div class="flex flex-wrap gap-1 justify-center">'
+            +'<button onclick="renewTenant(\''+t.id+'\')" title="Renew +30 days" class="'+b+' bg-emerald-100 text-emerald-700 hover:bg-emerald-200"><i class="fa-solid fa-calendar-plus"></i> +30d</button>'
+            +'<button onclick="toggleTenantStatus(\''+t.id+'\')" title="Lock/Unlock" class="'+b+' bg-amber-100 text-amber-700 hover:bg-amber-200"><i class="fa-solid fa-lock-open"></i></button>'
+            +'<button onclick="switchToTenant(\''+t.id+'\')" title="Switch" class="'+b+' bg-medical-100 text-medical-700 hover:bg-medical-200"><i class="fa-solid fa-right-to-bracket"></i></button>'
+            +'<button onclick="askDeleteTenant(\''+t.id+'\')" title="Delete" class="'+b+' bg-rose-100 text-rose-700 hover:bg-rose-200"><i class="fa-solid fa-trash"></i></button>'
+            +'</div></td></tr>';
+        }).join('');
+    }
+    function addTenant(e){
+        e.preventDefault();
+        const name=$('nt-name').value.trim();
+        if(!name){ toast('Tenant name required','error'); return; }
+        const months=Math.max(1,Number($('nt-months').value||1));
+        const d=new Date(); d.setMonth(d.getMonth()+months);
+        const t={ id:'TNT-'+String(Date.now()).slice(-6), name,
+            branch:$('nt-branch').value.trim(), phone:$('nt-phone').value.trim(),
+            rent:Number($('nt-rent').value||0), subscribedUntil:d.toISOString(),
+            status:'ACTIVE', createdAt:new Date().toISOString() };
+        tenants.push(t); saveJSON(LS.tenants,tenants);
+        saveJSON(LS.inv(t.id),[]);
+        saveJSON(LS.tests(t.id),JSON.parse(JSON.stringify(DEFAULT_TESTS)));
+        saveJSON(LS.exp(t.id),[]);
+        saveJSON(LS.doc(t.id),JSON.parse(JSON.stringify(DEFAULT_DOCTORS)));
+        saveJSON(LS.set(t.id),Object.assign({},DEFAULT_SETTINGS,{nameEn:name,nameBn:''}));
+        renderSaaSAdmin(); e.target.reset(); $('nt-months').value=1;
+        toast('Tenant created: '+name);
+    }
+    function renewTenant(id){
+        const t=tenants.find(x=>x.id===id); if(!t) return;
+        const base=new Date(t.subscribedUntil)>new Date()?new Date(t.subscribedUntil):new Date();
+        base.setDate(base.getDate()+30);
+        t.subscribedUntil=base.toISOString(); t.status='ACTIVE';
+        saveJSON(LS.tenants,tenants);
+        renderSaaSAdmin(); checkTenantLock();
+        toast('Renewed +30 days: '+t.name);
+    }
+    function toggleTenantStatus(id){
+        const t=tenants.find(x=>x.id===id); if(!t) return;
+        t.status=t.status==='ACTIVE'?'SUSPENDED':'ACTIVE';
+        saveJSON(LS.tenants,tenants);
+        renderSaaSAdmin(); if(id===activeId) checkTenantLock();
+        toast((t.status==='ACTIVE'?'Unlocked: ':'Locked: ')+t.name,'info');
+    }
+    function askDeleteTenant(id){ promptSaaSAdminAuth('delete_tenant',id); }
+    function doDeleteTenant(id){
+        if(tenants.length<=1){ toast('At least one tenant must exist!','error'); return; }
+        tenants=tenants.filter(t=>t.id!==id);
+        [LS.inv(id),LS.tests(id),LS.exp(id),LS.doc(id),LS.set(id)].forEach(k=>localStorage.removeItem(k));
+        saveJSON(LS.tenants,tenants);
+        if(activeId===id) loadTenantData(tenants[0].id);
+        renderAll(); renderSaaSAdmin(); checkTenantLock();
+        toast('Tenant & all its data deleted','info');
+    }
+    function changeAdminPassword(e){
+        e.preventDefault();
+        const p1=$('np1').value,p2=$('np2').value;
+        if(p1.length<4){ toast('Password must be at least 4 characters','error'); return; }
+        if(p1!==p2){ toast('Passwords do not match!','error'); return; }
+        localStorage.setItem(LS.pass,p1);
+        e.target.reset();
+        toast('Admin password changed successfully');
+    }
+    function downloadBackup(){
+        const data={v:1,exportedAt:new Date().toISOString(),tenants,activeId,data:{}};
+        tenants.forEach(t=>{
+            data.data[t.id]={
+                invoices:loadJSON(LS.inv(t.id),[]), tests:loadJSON(LS.tests(t.id),[]),
+                expenses:loadJSON(LS.exp(t.id),[]), doctors:loadJSON(LS.doc(t.id),[]),
+                settings:loadJSON(LS.set(t.id),{})
+            };
+        });
+        downloadFile('medeasy-backup-'+todayStr()+'.json',JSON.stringify(data,null,2),'application/json');
+        toast('Backup downloaded');
+    }
+    function restoreBackup(input){
+        const f=input.files[0]; if(!f) return;
+        const r=new FileReader();
+        r.onload=e=>{
+            try{
+                const d=JSON.parse(e.target.result);
+                if(!d||!Array.isArray(d.tenants)||!d.tenants.length) throw new Error('Invalid backup file');
+                Object.keys(d.data||{}).forEach(tid=>{
+                    const x=d.data[tid];
+                    saveJSON(LS.inv(tid),x.invoices||[]);
+                    saveJSON(LS.tests(tid),x.tests||[]);
+                    saveJSON(LS.exp(tid),x.expenses||[]);
+                    saveJSON(LS.doc(tid),x.doctors||[]);
+                    saveJSON(LS.set(tid),x.settings||{});
+                });
+                saveJSON(LS.tenants,d.tenants);
+                saveJSON(LS.active,d.activeId||d.tenants[0].id);
+                toast('Backup restored! Reloading...');
+                setTimeout(()=>location.reload(),900);
+            }catch(err){ toast('Restore failed: '+err.message,'error'); }
+        };
+        r.readAsText(f);
+        input.value='';
+    }
+    function wipeTenantData(){
+        if(!confirm('এই tenant-এর সব বিল ও খরচ মুছে যাবে! নিশ্চিত?')) return;
+        invoices=[]; expenses=[];
+        saveJSON(LS.inv(activeId),invoices);
+        saveJSON(LS.exp(activeId),expenses);
+        renderAll();
+        toast('Tenant bills & expenses wiped','info');
+    }
+
+    /* ---------- Render All ---------- */
+    function renderAll(){
+        updateTenantUI();
+        renderTestSelector(); renderDoctorDatalist();
+        renderSelectedTests(); calculateBillingTotals();
+        renderPatientRecordsTable();
+        renderDashboard();
+        renderSettingsForm(); renderTestDirectory();
+        renderExpenses(); renderDoctors();
+        renderSaaSAdmin(); renderReports();
+    }
+
+    try{ init(); }
+    catch(err){ console.error(err); toast('Startup error: '+err.message,'error'); }
+    </script>
+</body>
+</html>

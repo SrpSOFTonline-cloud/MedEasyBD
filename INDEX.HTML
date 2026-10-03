@@ -117,10 +117,20 @@
             <div class="w-20 h-20 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-4xl shadow-inner animate-pulse"><i class="fa-solid fa-lock"></i></div>
             <h2 class="text-2xl font-black text-slate-800 mb-2">Subscription Expired!</h2>
             <p class="text-slate-600 text-sm mb-6 leading-relaxed">এই হসপিটালের (<span id="lock-tenant-name" class="font-bold text-slate-800"></span>) subscription <span class="bg-rose-100 text-rose-700 px-2 py-0.5 rounded font-bold text-xs uppercase">EXPIRED / SUSPENDED</span>। MedEasyBD SaaS Admin-এর সাথে যোগাযোগ করে renewal করুন।</p>
-            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-left mb-6 text-xs text-slate-600 space-y-1.5">
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-left mb-4 text-xs text-slate-600 space-y-2">
                 <div class="flex justify-between"><span>Tenant ID:</span> <span id="lock-tenant-id" class="font-mono font-bold text-slate-800"></span></div>
                 <div class="flex justify-between"><span>Monthly Rent:</span> <span id="lock-tenant-rent" class="font-bold text-slate-800"></span> BDT</div>
-                <div class="flex justify-between"><span>SaaS Helpline:</span> <span class="font-bold text-slate-800">+880 1700-000000</span></div>
+                <div class="flex justify-between items-center"><span>SaaS Helpline:</span>
+                    <a href="tel:+8801843860547" class="font-black text-medical-700 text-sm flex items-center gap-1.5 hover:text-medical-800"><i class="fa-solid fa-phone-volume"></i> +880 1843-860547</a>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2 mb-4">
+                <a href="tel:+8801843860547" class="py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-sm shadow-lg transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-phone"></i> এখনই কল করুন
+                </a>
+                <a href="https://wa.me/8801843860547?text=%E0%A6%86%E0%A6%AE%E0%A6%BE%E0%A6%B0%20MedEasyBD%20subscription%20renew%20%E0%A6%95%E0%A6%B0%E0%A6%A4%E0%A7%87%20%E0%A6%9A%E0%A6%BE%E0%A6%87%E0%A5%A4%20Tenant%20ID%3A%20" target="_blank" class="py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-sm shadow-lg transition flex items-center justify-center gap-2">
+                    <i class="fa-brands fa-whatsapp"></i> WhatsApp করুন
+                </a>
             </div>
             <button onclick="logout()" class="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold transition text-sm shadow-lg flex items-center justify-center gap-2">
                 <i class="fa-solid fa-right-from-bracket"></i> Logout
@@ -266,7 +276,7 @@
                     <div>
                         <div class="flex items-center gap-2">
                             <span class="font-black text-lg tracking-tight bg-gradient-to-r from-white via-slate-100 to-brand-300 bg-clip-text text-transparent">MedEasy BD</span>
-                            <span class="bg-brand-500/20 text-brand-300 text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full border border-brand-500/30">v6.2</span>
+                            <span class="bg-brand-500/20 text-brand-300 text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full border border-brand-500/30">v6.3</span>
                         </div>
                         <p class="text-[11px] text-slate-400 font-medium hidden sm:block">হসপিটাল ও ডায়াগনস্টিক ম্যানেজমেন্ট সিস্টেম</p>
                     </div>
@@ -401,7 +411,7 @@
                         <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
                             <h3 class="font-bold text-slate-800 text-base flex items-center gap-2"><i class="fa-solid fa-id-card text-medical-600"></i> Patient Demographics</h3>
                             <div class="flex items-center gap-2">
-                                <span class="text-xs text-slate-500 font-medium">Patient ID:</span>
+                                <span class="text-xs text-slate-500 font-medium">Patient ID (Serial):</span>
                                 <input type="text" id="inv-patient-id" readonly class="bg-slate-100 font-mono font-black text-brand-700 px-3 py-1 rounded-lg text-sm border border-slate-200 w-32 text-center select-all">
                             </div>
                         </div>
@@ -830,14 +840,19 @@
     </main>
 
     <footer class="bg-slate-900 text-slate-400 text-center text-xs py-4">
-        MedEasy BD SaaS v6.2 • Smart Invoice Design • Data stored in this browser • © 2025
+        MedEasy BD SaaS v6.3 • Serial Patient ID • Data stored in this browser • © 2025
     </footer>
 
     <script>
     'use strict';
-    /* ================= MEDEASY BD v6.2 — SMART INVOICE DESIGN ================= */
+    /* ================= MEDEASY BD v6.3 — SERIAL PATIENT ID + HELPLINE ================= */
     const SAAS_DEFAULT_PASS = '5565232070';
     const HOSPITAL_DEFAULT_PASS = '123456';
+    /* ===== SaaS Helpline (তোমার নম্বর) ===== */
+    const HELPLINE_DISPLAY = '+880 1843-860547';
+    const HELPLINE_TEL = '+8801843860547';
+    const HELPLINE_WA = '8801843860547';
+
     const LS = {
         tenants:'mebd_tenants', active:'mebd_active', saasPass:'mebd_saas_pass', seed:'mebd_seed', session:'mebd_session',
         inv:t=>'mebd_inv_'+t, set:t=>'mebd_set_'+t, tests:t=>'mebd_tests_'+t, exp:t=>'mebd_exp_'+t, doc:t=>'mebd_doc_'+t, tpass:t=>'mebd_tpass_'+t
@@ -878,7 +893,7 @@
     function togglePass(inputId,iconId){ const i=$(inputId),ic=$(iconId); if(i.type==='password'){i.type='text';ic.className='fa-solid fa-eye-slash';}else{i.type='password';ic.className='fa-solid fa-eye';} }
     function shakeEl(id){ try{ const c=$(id); c.classList.remove('shake'); void c.offsetWidth; c.classList.add('shake'); }catch(e){} }
 
-    /* ---------- Taka In Words (English, Indian numbering) ---------- */
+    /* ---------- টাকা কথায় (In Words) ---------- */
     function numToWords(num){
         num=Math.floor(Number(num)||0);
         if(num===0) return 'Zero';
@@ -897,6 +912,28 @@
         return out.trim();
     }
     function takaInWords(n){ return numToWords(n)+' Taka Only'; }
+
+    /* ============================================================
+       SERIAL PATIENT ID — duplicate হবে না
+       Format: PAT-000001, PAT-000002, PAT-000003 ...
+       ============================================================ */
+    function extractPatientSerial(pid){
+        const m=String(pid||'').match(/(\d+)\s*$/);
+        return m?parseInt(m[1],10):0;
+    }
+    function nextPatientSerial(){
+        let max=0;
+        invoices.forEach(i=>{ const n=extractPatientSerial(i.patientId); if(n>max) max=n; });
+        return 'PAT-'+String(max+1).padStart(6,'0');
+    }
+    /* নিশ্চিত করে যে ID unique — duplicate পেলে পরের serial নেয় */
+    function uniquePatientSerial(){
+        let pid=nextPatientSerial();
+        const used=new Set(invoices.map(i=>String(i.patientId||'').toUpperCase()));
+        let n=extractPatientSerial(pid);
+        while(used.has(pid.toUpperCase())){ n++; pid='PAT-'+String(n).padStart(6,'0'); }
+        return pid;
+    }
 
     function toast(msg,type='success'){
         const colors={success:'bg-emerald-600',error:'bg-rose-600',info:'bg-medical-600',warn:'bg-amber-500'};
@@ -980,10 +1017,11 @@
     function seedDemo(){
         if(localStorage.getItem(LS.seed) || invoices.length) return;
         const dNames=doctors.map(d=>d.name);
-        const mk=(daysAgo,name,phone,age,gender,doc,items,paid)=>{
+        /* ডেমো ডেটাতেও SERIAL Patient ID */
+        const mk=(serial,daysAgo,name,phone,age,gender,doc,items,paid)=>{
             const d=new Date(); d.setDate(d.getDate()-daysAgo);
             const sub=items.reduce((s,i)=>s+i.price,0);
-            return { id:'INV-DEMO-'+daysAgo+Math.floor(Math.random()*90+10), patientId:'PAT-'+Math.floor(10000+Math.random()*89999),
+            return { id:'INV-DEMO-'+daysAgo+Math.floor(Math.random()*90+10), patientId:'PAT-'+String(serial).padStart(6,'0'),
                 patientName:name, patientPhone:phone, patientAge:age, patientGender:gender, refDoctor:doc,
                 deliveryDate:'', deliveryStatus:'PENDING',
                 items, subtotal:sub, discount:0, taxPercent:0, taxAmount:0, grandTotal:sub, paid, due:sub-paid,
@@ -991,11 +1029,11 @@
                 status:(sub-paid)<=0?'PAID':'PARTIAL' };
         };
         invoices=[
-            mk(0,'Md. Kabir Hossain','01712345678','45 Years','Male',dNames[0]||'Self',
+            mk(1,0,'Md. Kabir Hossain','01712345678','45 Years','Male',dNames[0]||'Self',
                 [{name:'CBC (Complete Blood Count)',category:'Pathology',price:400},{name:'FBS (Fasting Blood Sugar)',category:'Pathology',price:120}],520),
-            mk(0,'Mrs. Ayesha Siddika','01819876543','30 Years','Female',dNames[1]||'Self',
+            mk(2,0,'Mrs. Ayesha Siddika','01819876543','30 Years','Female',dNames[1]||'Self',
                 [{name:'USG Whole Abdomen',category:'Radiology',price:1000}],0),
-            mk(1,'Rafiqul Islam','01911223344','52 Years','Male',dNames[2]||'Self',
+            mk(3,1,'Rafiqul Islam','01911223344','52 Years','Male',dNames[2]||'Self',
                 [{name:'ECG (12 Lead)',category:'Cardiology',price:300},{name:'Lipid Profile (Fasting)',category:'Biochemistry',price:700}],1000)
         ];
         expenses=[
@@ -1150,7 +1188,6 @@
     }
 
     /* ---------- Billing ---------- */
-    function generatePatientId(){ return 'PAT-'+Math.floor(10000+Math.random()*90000); }
     function nextInvoiceNo(){
         const d=new Date();
         const ymd=''+d.getFullYear()+pad2(d.getMonth()+1)+pad2(d.getDate());
@@ -1210,10 +1247,18 @@
         if(!selectedTests.length) return null;
         const tot=calculateBillingTotals();
         const existing=editingId?invoices.find(i=>i.id===editingId):null;
-        let patientId=$('inv-patient-id').value;
-        if(!existing){
-            const prev=invoices.find(i=>i.patientPhone===$('inv-patient-phone').value.trim());
-            if(prev) patientId=prev.patientId;
+        /* ===== SERIAL PATIENT ID — Save-এর সময় নিশ্চিত unique ===== */
+        let patientId;
+        if(existing){
+            patientId=existing.patientId; /* Edit করলে ID অপরিবর্তিত থাকবে */
+        } else {
+            const phone=$('inv-patient-phone').value.trim();
+            const prev=invoices.find(i=>i.patientPhone===phone);
+            if(prev){
+                patientId=prev.patientId; /* পুরনো রোগী — তার আগের ID-ই */
+            } else {
+                patientId=uniquePatientSerial(); /* নতুন serial — guaranteed unique */
+            }
         }
         const paidNow=tot.paid;
         const method=$('inv-payment-method').value;
@@ -1257,7 +1302,7 @@
         $('inv-patient-name').value=''; $('inv-patient-phone').value='';
         $('inv-patient-age').value=''; $('inv-ref-doctor').value='';
         $('inv-discount-input').value=0; $('inv-tax-input').value=0; $('inv-paid-input').value=0;
-        $('inv-patient-id').value=generatePatientId();
+        $('inv-patient-id').value=nextPatientSerial(); /* পরবর্তী serial preview */
         $('inv-submit-label').textContent='Save Invoice Only';
         $('inv-cancel-edit').style.display='none';
         const dl=new Date(Date.now()+ (Number(settings.deliveryHours)||24)*3600000);
@@ -1287,7 +1332,7 @@
     }
     function deleteInvoiceAsk(id){
         const inv=invoices.find(i=>i.id===id); if(!inv) return;
-        if(!confirm('স্থায়ীভাবে invoice '+id+' ('+inv.patientName+') মুছে ফেলবেন?')) return;
+        if(!confirm('স্থায়ীভাবে invoice '+id+' ('+inv.patientName+') মুছে ফেলবেন?\n\nনোট: Patient ID serial আবার ব্যবহার হবে না — serial সবসময় সামনে এগিয়ে যাবে।')) return;
         invoices=invoices.filter(i=>i.id!==id);
         saveJSON(LS.inv(activeId),invoices);
         renderDashboard(); renderPatientRecordsTable(); renderReports();
@@ -1385,7 +1430,7 @@
     const CSS_THERMAL='@page{size:80mm auto;margin:2mm} body{margin:0;font-family:"Hind Siliguri",Inter,sans-serif;font-size:11px;color:#000}';
     const CSS_STICKER='@page{size:50mm 30mm;margin:1mm} body{margin:0;font-family:Inter,sans-serif;color:#000}';
 
-    /* ================= SMART INVOICE TEMPLATES (Bilingual, Clear) ================= */
+    /* ================= SMART INVOICE TEMPLATES (Bilingual) ================= */
     function statusBadgeHTML(inv){
         if(Number(inv.due)<=0.001)
             return '<span style="display:inline-block;background:#16a34a;color:#fff;padding:3px 12px;border-radius:20px;font-weight:800;font-size:11px;">&#10004; PAID — পরিশোধিত</span>';
@@ -2088,7 +2133,7 @@
         toast('SaaS Master password changed successfully');
     }
     function downloadBackup(){
-        const data={v:2,exportedAt:new Date().toISOString(),tenants,activeId,data:{}};
+        const data={v:3,exportedAt:new Date().toISOString(),tenants,activeId,data:{}};
         tenants.forEach(t=>{
             data.data[t.id]={
                 invoices:loadJSON(LS.inv(t.id),[]), tests:loadJSON(LS.tests(t.id),[]),
